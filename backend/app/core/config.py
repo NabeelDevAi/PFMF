@@ -1,0 +1,47 @@
+"""Application configuration.
+
+Environment-driven settings (see claude_docs/backend-plan/02-configuration-and-environment.md).
+Nothing secret is hardcoded here. Locally these come from backend/.env (gitignored);
+`.env.example` documents the required shape.
+
+Required settings have no default, so instantiating Settings() fails fast if
+they're missing -- this is deliberate, not an oversight.
+"""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from typing import Literal
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    environment: Literal["local", "staging", "production"] = "local"
+
+    # Required, no default -- startup fails fast if missing.
+    database_url: str
+    jwt_secret: str
+
+    # Only needed to run the test suite / connectivity check locally.
+    test_database_url: str | None = None
+
+    jwt_access_ttl_minutes: int = 15
+    jwt_refresh_ttl_days: int = 30
+    cors_origins: list[str] = []
+    log_level: str = "INFO"
+    max_horizon_months: int = 120
+    max_transactions_per_scenario: int = 500
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Cached so Settings() -- and its env parsing / fail-fast validation --
+    runs once per process, not on every call site."""
+    return Settings()
