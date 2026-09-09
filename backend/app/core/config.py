@@ -13,6 +13,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,7 +28,7 @@ class Settings(BaseSettings):
 
     # Required, no default -- startup fails fast if missing.
     database_url: str
-    jwt_secret: str
+    jwt_secret: SecretStr
 
     # Only needed to run the test suite / connectivity check locally.
     test_database_url: str | None = None
@@ -38,6 +39,13 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     max_horizon_months: int = 120
     max_transactions_per_scenario: int = 500
+
+    # Rate limiting (in-memory for this build -- see backend-plan/07 §6).
+    rate_limit_auth_attempts_per_minute: int = 5
+    rate_limit_password_reset_attempts_per_hour: int = 3
+
+    # Password reset token lifetime.
+    password_reset_ttl_minutes: int = 30
 
 
 @lru_cache
