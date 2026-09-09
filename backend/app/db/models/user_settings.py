@@ -1,0 +1,32 @@
+from __future__ import annotations
+
+import uuid
+from datetime import date, datetime
+
+from sqlalchemy import CHAR, BigInteger, Date, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import func
+
+from app.db.base import Base
+
+
+class UserSettings(Base):
+    """Currency, locale, opening balance and its effective date. One row
+    per user (D-04). See architecture doc §5."""
+
+    __tablename__ = "user_settings"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    display_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    currency_code: Mapped[str] = mapped_column(CHAR(3), nullable=False, server_default="SAR")
+    locale: Mapped[str] = mapped_column(Text, nullable=False, server_default="en")  # 'en' | 'ar'
+    opening_balance_minor: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, server_default="0"
+    )
+    opening_balance_date: Mapped[date] = mapped_column(Date, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now(), nullable=False
+    )
