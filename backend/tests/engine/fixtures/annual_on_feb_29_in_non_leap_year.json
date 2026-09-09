@@ -1,0 +1,32 @@
+{
+  "name": "Annual starting Feb 29 clamps to Feb 28 in the following non-leap year",
+  "opening_balance_minor": 0,
+  "anchor_month": "2024-02",
+  "horizon_months": 13,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Annual bonus",
+      "amount_minor": 100000,
+      "direction": "income",
+      "recurrence": "annual",
+      "start_date": "2024-02-29",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    { "month": "2024-02", "income_minor": 100000, "expense_minor": 0, "net_minor": 100000, "closing_balance_minor": 100000 },
+    { "month": "2024-03", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2024-04", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2024-05", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2024-06", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2024-07", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2024-08", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2024-09", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2024-10", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2024-11", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2024-12", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2025-01", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2025-02", "income_minor": 100000, "expense_minor": 0, "net_minor": 100000, "closing_balance_minor": 200000 }
+  ]
+}

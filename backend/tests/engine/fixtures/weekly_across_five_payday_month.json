@@ -1,0 +1,21 @@
+{
+  "name": "Weekly recurrence produces 5 occurrences in a 5-payday month, not a normalised average",
+  "opening_balance_minor": 0,
+  "anchor_month": "2026-01",
+  "horizon_months": 2,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Weekly wage",
+      "amount_minor": 50000,
+      "direction": "income",
+      "recurrence": "weekly",
+      "start_date": "2026-01-02",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    { "month": "2026-01", "income_minor": 250000, "expense_minor": 0, "net_minor": 250000, "closing_balance_minor": 250000 },
+    { "month": "2026-02", "income_minor": 200000, "expense_minor": 0, "net_minor": 200000, "closing_balance_minor": 450000 }
+  ]
+}

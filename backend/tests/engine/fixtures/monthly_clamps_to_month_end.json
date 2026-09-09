@@ -1,0 +1,24 @@
+{
+  "name": "Monthly starting Jan 31 clamps in short months, never drifts",
+  "opening_balance_minor": 0,
+  "anchor_month": "2026-01",
+  "horizon_months": 5,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Rent",
+      "amount_minor": 300000,
+      "direction": "expense",
+      "recurrence": "monthly",
+      "start_date": "2026-01-31",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    { "month": "2026-01", "income_minor": 0, "expense_minor": 300000, "net_minor": -300000, "closing_balance_minor": -300000 },
+    { "month": "2026-02", "income_minor": 0, "expense_minor": 300000, "net_minor": -300000, "closing_balance_minor": -600000 },
+    { "month": "2026-03", "income_minor": 0, "expense_minor": 300000, "net_minor": -300000, "closing_balance_minor": -900000 },
+    { "month": "2026-04", "income_minor": 0, "expense_minor": 300000, "net_minor": -300000, "closing_balance_minor": -1200000 },
+    { "month": "2026-05", "income_minor": 0, "expense_minor": 300000, "net_minor": -300000, "closing_balance_minor": -1500000 }
+  ]
+}

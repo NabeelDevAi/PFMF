@@ -1,0 +1,22 @@
+{
+  "name": "A one-time transaction dated after the window contributes nothing",
+  "opening_balance_minor": 50000,
+  "anchor_month": "2026-01",
+  "horizon_months": 3,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Future bonus",
+      "amount_minor": 999999,
+      "direction": "income",
+      "recurrence": "one_time",
+      "start_date": "2026-04-01",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    { "month": "2026-01", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 50000 },
+    { "month": "2026-02", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 50000 },
+    { "month": "2026-03", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 50000 }
+  ]
+}

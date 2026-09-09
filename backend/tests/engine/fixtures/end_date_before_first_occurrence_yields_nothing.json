@@ -1,0 +1,31 @@
+{
+  "name": "An end_date before the transaction's first occurrence yields zero occurrences -- valid, not an error",
+  "opening_balance_minor": 100000,
+  "anchor_month": "2026-01",
+  "horizon_months": 12,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Never actually starts",
+      "amount_minor": 500000,
+      "direction": "expense",
+      "recurrence": "monthly",
+      "start_date": "2026-03-01",
+      "end_date": "2026-01-01"
+    }
+  ],
+  "expected_months": [
+    { "month": "2026-01", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2026-02", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2026-03", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2026-04", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2026-05", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2026-06", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2026-07", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2026-08", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2026-09", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2026-10", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2026-11", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 },
+    { "month": "2026-12", "income_minor": 0, "expense_minor": 0, "net_minor": 0, "closing_balance_minor": 100000 }
+  ]
+}
