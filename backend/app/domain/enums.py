@@ -17,9 +17,7 @@ class Direction(StrEnum):
 
 
 class Recurrence(StrEnum):
-    """The frozen recurrence set (D-08). Not consumed by any table until
-    the transactions table lands in milestone M3 -- defined now because the
-    architecture doc's DDL declares all three enum types together."""
+    """The frozen recurrence set (D-08)."""
 
     ONE_TIME = "one_time"
     WEEKLY = "weekly"
@@ -35,3 +33,20 @@ class OverlayOp(StrEnum):
 
     EXCLUDE = "exclude"
     OVERRIDE = "override"
+
+
+class Origin(StrEnum):
+    """How a transaction relates to Base in a resolved scenario view
+    (architecture §6, §9.2). Never stored -- computed at read time by
+    whatever currently does resolution.
+
+    Milestone M3 only ever produces OWN (Base's own rows) or ADDED (a
+    derived scenario's own local rows), since there's no overlay support
+    yet to produce INHERITED or OVERRIDDEN -- a non-base scenario simply
+    doesn't show Base's transactions until the real resolver lands in M4.
+    """
+
+    OWN = "own"
+    INHERITED = "inherited"
+    OVERRIDDEN = "overridden"
+    ADDED = "added"
