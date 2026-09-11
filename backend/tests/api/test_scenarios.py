@@ -1,0 +1,186 @@
+"""Scenario CRUD, Base protection, duplicate, archive/unarchive, and
+cross-user ownership (backend-plan/11's M3 done-criteria)."""
+
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+
+def _auth_headers(client: TestClient, email: str = "scen@example.com") -> dict[str, str]:
+    resp = client.post("/v1/auth/register", json={"email": email, "password": "correct-horse"})
+    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+
+
+def _list_scenarios(client: TestClient, headers: dict) -> list[dict]:
+    return client.get("/v1/scenarios", headers=headers).json()["items"]
+
+
+def test_register_creates_exactly_one_base_scenario(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    scenarios = _list_scenarios(client, headers)
+    assert len(scenarios) == 1
+    assert scenarios[0]["is_base"] is True
+    assert scenarios[0]["name"] == "Base Plan"
+
+
+def test_create_scenario(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"})
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["name"] == "Buy House"
+    assert body["is_base"] is False
+    assert body["opening_balance_override_minor"] is None
+
+
+def test_create_scenario_duplicate_name_is_conflict(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"})
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"})
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "scenario.name_taken"
+
+
+def test_create_scenario_can_reuse_base_plan_name_for_a_different_user(client: TestClient) -> None:
+    """Uniqueness is per-user, not global."""
+    headers_a = _auth_headers(client, email="a@example.com")
+    headers_b = _auth_headers(client, email="b@example.com")
+    # Both users already have a scenario named "Base Plan" from registration
+    # -- confirms the unique constraint is (user_id, name), not just (name).
+    assert _list_scenarios(client, headers_a)[0]["name"] == "Base Plan"
+    assert _list_scenarios(client, headers_b)[0]["name"] == "Base Plan"
+
+
+def test_base_scenario_cannot_be_deleted(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    base_id = _list_scenarios(client, headers)[0]["id"]
+    resp = client.delete(f"/v1/scenarios/{base_id}", headers=headers)
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "scenario.base_immutable"
+
+
+def test_base_scenario_cannot_be_archived(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    base_id = _list_scenarios(client, headers)[0]["id"]
+    resp = client.post(f"/v1/scenarios/{base_id}/archive", headers=headers)
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "scenario.base_immutable"
+
+
+def test_non_base_scenario_can_be_deleted(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    created = client.post("/v1/scenarios", headers=headers, json={"name": "Temp"}).json()
+    resp = client.delete(f"/v1/scenarios/{created['id']}", headers=headers)
+    assert resp.status_code == 204
+    assert client.get(f"/v1/scenarios/{created['id']}", headers=headers).status_code == 404
+
+
+def test_archive_and_unarchive_round_trip(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    created = client.post("/v1/scenarios", headers=headers, json={"name": "Someday"}).json()
+
+    archived = client.post(f"/v1/scenarios/{created['id']}/archive", headers=headers)
+    assert archived.status_code == 200
+    assert archived.json()["archived_at"] is not None
+
+    # Archived scenarios are excluded from the default list.
+    assert created["id"] not in {s["id"] for s in _list_scenarios(client, headers)}
+    all_scenarios = client.get("/v1/scenarios?include_archived=true", headers=headers).json()[
+        "items"
+    ]
+    assert created["id"] in {s["id"] for s in all_scenarios}
+
+    unarchived = client.post(f"/v1/scenarios/{created['id']}/unarchive", headers=headers)
+    assert unarchived.status_code == 200
+    assert unarchived.json()["archived_at"] is None
+    assert created["id"] in {s["id"] for s in _list_scenarios(client, headers)}
+
+
+def test_patch_scenario_rename_and_opening_balance_override(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    created = client.post("/v1/scenarios", headers=headers, json={"name": "Draft"}).json()
+
+    resp = client.patch(
+        f"/v1/scenarios/{created['id']}",
+        headers=headers,
+        json={"name": "Buy House", "opening_balance_override_minor": 250000},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "Buy House"
+    assert resp.json()["opening_balance_override_minor"] == 250000
+
+
+def test_patch_scenario_unset_opening_balance_override(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    created = client.post(
+        "/v1/scenarios",
+        headers=headers,
+        json={"name": "Draft", "opening_balance_override_minor": 100},
+    ).json()
+
+    resp = client.patch(
+        f"/v1/scenarios/{created['id']}",
+        headers=headers,
+        json={"unset_opening_balance_override": True},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["opening_balance_override_minor"] is None
+
+
+def test_duplicate_scenario_copies_own_transactions_with_a_new_id(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    source = client.post("/v1/scenarios", headers=headers, json={"name": "Source"}).json()
+    client.post(
+        f"/v1/scenarios/{source['id']}/transactions",
+        headers=headers,
+        json={
+            "name": "Rent",
+            "amount_minor": 300000,
+            "direction": "expense",
+            "recurrence": "monthly",
+            "start_date": "2026-01-01",
+        },
+    )
+
+    resp = client.post(f"/v1/scenarios/{source['id']}/duplicate", headers=headers, json={})
+    assert resp.status_code == 201
+    copy = resp.json()
+    assert copy["id"] != source["id"]
+    assert copy["name"] == "Source (copy)"
+    assert copy["is_base"] is False
+
+    copied_txns = client.get(f"/v1/scenarios/{copy['id']}/transactions", headers=headers).json()[
+        "items"
+    ]
+    assert len(copied_txns) == 1
+    assert copied_txns[0]["name"] == "Rent"
+    assert copied_txns[0]["scenario_id"] == copy["id"]
+
+    # The original is untouched.
+    source_txns = client.get(f"/v1/scenarios/{source['id']}/transactions", headers=headers).json()[
+        "items"
+    ]
+    assert len(source_txns) == 1
+
+
+def test_duplicating_base_produces_a_non_base_copy(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    base_id = _list_scenarios(client, headers)[0]["id"]
+    resp = client.post(
+        f"/v1/scenarios/{base_id}/duplicate", headers=headers, json={"name": "Base copy"}
+    )
+    assert resp.status_code == 201
+    assert resp.json()["is_base"] is False
+
+
+def test_scenario_not_found_for_another_user_returns_404_not_403(client: TestClient) -> None:
+    headers_a = _auth_headers(client, email="owner@example.com")
+    headers_b = _auth_headers(client, email="intruder@example.com")
+    scenario = client.post("/v1/scenarios", headers=headers_a, json={"name": "Private Plan"}).json()
+
+    resp = client.get(f"/v1/scenarios/{scenario['id']}", headers=headers_b)
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "resource.not_found"
+
+    resp = client.delete(f"/v1/scenarios/{scenario['id']}", headers=headers_b)
+    assert resp.status_code == 404
