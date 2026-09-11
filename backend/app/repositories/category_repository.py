@@ -21,3 +21,14 @@ class CategoryRepository:
             .order_by(Category.direction, Category.sort_order)
         )
         return list(self.db.scalars(stmt))
+
+    def get_visible_to_user(self, user_id: uuid.UUID, category_id: uuid.UUID) -> Category | None:
+        """A system category (visible to everyone) or one this user owns --
+        used to validate a transaction's category_id belongs to a category
+        this user is actually allowed to use."""
+        return self.db.scalar(
+            select(Category).where(
+                Category.id == category_id,
+                or_(Category.user_id.is_(None), Category.user_id == user_id),
+            )
+        )
