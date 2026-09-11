@@ -9,6 +9,8 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.categories import router as categories_router
 from app.api.v1.health import router as health_router
 from app.api.v1.me import router as me_router
+from app.api.v1.scenarios import router as scenarios_router
+from app.api.v1.transactions import scenario_transactions_router, transactions_router
 from app.core.config import get_settings
 
 
@@ -31,6 +33,9 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/v1")
     app.include_router(me_router, prefix="/v1")
     app.include_router(categories_router, prefix="/v1")
+    app.include_router(scenarios_router, prefix="/v1")
+    app.include_router(scenario_transactions_router, prefix="/v1")
+    app.include_router(transactions_router, prefix="/v1")
     return app
 
 
