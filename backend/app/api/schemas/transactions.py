@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
 from app.domain.enums import Direction, Origin, Recurrence
+
+if TYPE_CHECKING:
+    from app.services.scenario_resolver import ResolvedRow
 
 
 class TransactionOut(BaseModel):
@@ -42,6 +46,30 @@ class TransactionOut(BaseModel):
             origin=origin,
             created_at=txn.created_at,
             updated_at=txn.updated_at,
+        )
+
+    @classmethod
+    def from_resolved(cls, row: ResolvedRow) -> TransactionOut:
+        """`row` comes from ScenarioResolver -- engine vocabulary in,
+        domain vocabulary (plus real UUID/date types) out. The values are
+        identical strings between app.engine.types and app.domain.enums
+        by construction, so direct construction from the enum's value is
+        safe and doesn't need a translation table."""
+        r = row.resolved
+        return cls(
+            id=uuid.UUID(r.id),
+            scenario_id=row.scenario_id,
+            name=r.name,
+            amount_minor=r.amount_minor,
+            direction=Direction(r.direction.value),
+            category_id=uuid.UUID(r.category_id) if r.category_id else None,
+            notes=row.notes,
+            recurrence=Recurrence(r.recurrence.value),
+            start_date=r.start_date,
+            end_date=r.end_date,
+            origin=Origin(r.origin.value),
+            created_at=row.created_at,
+            updated_at=row.updated_at,
         )
 
 

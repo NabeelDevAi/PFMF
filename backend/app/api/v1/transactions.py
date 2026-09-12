@@ -2,10 +2,13 @@
 the architecture doc's API surface exactly: listing/creating are nested
 under the scenario (/scenarios/{id}/transactions), but editing/deleting a
 transaction you already own directly is not (/transactions/{id}) --
-because in a derived scenario, PATCH/DELETE on an *inherited* row must go
-through the overlay endpoints instead (architecture §9.2). That routing
-split isn't reachable yet in this milestone (no overlays, no inherited
-rows visible), but the URL shape is already the one M4 needs.
+because in a derived scenario, PATCH/DELETE on an *inherited* or
+*overridden* row must go through the overlay endpoints instead
+(architecture §9.2, app/api/v1/overlays.py), never these two. These
+routes only ever reach a transaction the caller owns directly (Base's
+own rows, or a scenario's own ADDED rows) -- TransactionService.get()
+looks up by transactions.user_id, and an inherited row simply isn't a
+row in that table at all.
 """
 
 from __future__ import annotations
@@ -25,6 +28,8 @@ from app.api.schemas.transactions import (
 from app.db.models.user import User
 from app.db.session import get_db
 from app.domain.enums import Origin
+from app.services.scenario_resolver import ScenarioResolver
+from app.services.scenario_service import ScenarioService
 from app.services.transaction_service import TransactionService
 
 scenario_transactions_router = APIRouter(prefix="/scenarios", tags=["transactions"])
@@ -35,8 +40,9 @@ transactions_router = APIRouter(prefix="/transactions", tags=["transactions"])
 def list_transactions(
     scenario_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> TransactionListOut:
-    rows = TransactionService(db).list_for_scenario(user.id, scenario_id)
-    return TransactionListOut(items=[TransactionOut.from_row(txn, origin) for txn, origin in rows])
+    scenario = ScenarioService(db).get(user.id, scenario_id)
+    rows = ScenarioResolver(db).resolve_for_api(user.id, scenario)
+    return TransactionListOut(items=[TransactionOut.from_resolved(row) for row in rows])
 
 
 @scenario_transactions_router.post(
@@ -64,8 +70,10 @@ def create_transaction(
         notes=body.notes,
     )
     db.commit()
-    # This scenario's own additions are always ADDED once overlays exist;
-    # today, a scenario's own rows are ADDED unless it's Base (then OWN).
+    # A transaction created directly on a scenario is always its own row:
+    # OWN if that scenario is Base, ADDED otherwise -- never INHERITED or
+    # OVERRIDDEN, which only exist in the *resolved* view (list_transactions
+    # above), not as rows anyone creates directly.
     scenario = service.scenarios.get_by_id(user.id, scenario_id)
     origin = _own_or_added(scenario.is_base)
     return TransactionOut.from_row(txn, origin)
