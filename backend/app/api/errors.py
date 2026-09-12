@@ -6,11 +6,10 @@ string on the Flutter side. Adding a code without telling mobile ships an
 untranslated error, so new codes belong in a reviewed change, not a
 one-off raise somewhere in a router.
 
-Two additions beyond the original registry, both because the underlying
-flow (password reset) was already committed to in backend-plan/09 without
-its own error code being defined there -- same kind of gap as the missing
-refresh_tokens table, fixed the same way: named here, not worked around
-silently.
+Additions beyond the original registry are called out at their entry
+below -- same kind of gap as the missing refresh_tokens table each time:
+a flow the plan already committed to needed a code it never defined,
+fixed by naming it here, not working around it silently.
 """
 
 from __future__ import annotations
@@ -39,6 +38,7 @@ ERROR_STATUS: dict[str, int] = {
     "scenario.limit_reached": 422,
     "overlay.target_not_in_base": 422,
     "overlay.already_exists": 409,
+    "overlay.scenario_is_base": 422,  # addition: overlays can't target the Base scenario itself
     "compare.same_scenario": 422,
     "forecast.invalid_horizon": 422,
     "resource.not_found": 404,
