@@ -1,10 +1,9 @@
 """Transaction CRUD, scoped to the scenario a caller owns directly.
 
-Milestone scoping (see backend-plan/11 M3 vs M4): a scenario's
-"transactions view" here is just its own raw rows -- no overlay
-resolution, since scenario_overlays doesn't exist until M4. A derived
-scenario in this milestone shows only what's been added directly to it,
-never Base's inherited rows. See Origin's docstring in app.domain.enums.
+Listing a scenario's *resolved* transactions (the view that includes
+inherited/overridden Base rows) is ScenarioResolver's job, not this
+service's -- see app/api/v1/transactions.py's module docstring for the
+routing split this implies.
 """
 
 from __future__ import annotations
@@ -17,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.api.errors import APIError
 from app.core.config import get_settings
 from app.db.models.transaction import Transaction
-from app.domain.enums import Direction, Origin, Recurrence
+from app.domain.enums import Direction, Recurrence
 from app.repositories.category_repository import CategoryRepository
 from app.repositories.scenario_repository import ScenarioRepository
 from app.repositories.transaction_repository import TransactionRepository
@@ -29,13 +28,6 @@ class TransactionService:
         self.transactions = TransactionRepository(db)
         self.scenarios = ScenarioRepository(db)
         self.categories = CategoryRepository(db)
-
-    def list_for_scenario(
-        self, user_id: uuid.UUID, scenario_id: uuid.UUID
-    ) -> list[tuple[Transaction, Origin]]:
-        scenario = self._get_scenario(user_id, scenario_id)
-        origin = Origin.OWN if scenario.is_base else Origin.ADDED
-        return [(txn, origin) for txn in self.transactions.list_by_scenario(user_id, scenario_id)]
 
     def get(self, user_id: uuid.UUID, transaction_id: uuid.UUID) -> Transaction:
         txn = self.transactions.get_by_id(user_id, transaction_id)
