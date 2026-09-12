@@ -5,6 +5,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.db.models.scenario import Scenario
 from app.db.models.scenario_overlay import ScenarioOverlay
 
 
@@ -22,6 +23,18 @@ class OverlayRepository:
                 select(ScenarioOverlay).where(ScenarioOverlay.scenario_id == scenario_id)
             )
         )
+
+    def list_all_for_user(self, user_id: uuid.UUID) -> list[ScenarioOverlay]:
+        """Every overlay across every scenario this user owns -- for
+        GET /me/export. The only overlay query that needs a join, since
+        there's no user_id column here to filter on directly."""
+        stmt = (
+            select(ScenarioOverlay)
+            .join(Scenario, ScenarioOverlay.scenario_id == Scenario.id)
+            .where(Scenario.user_id == user_id)
+            .order_by(ScenarioOverlay.scenario_id, ScenarioOverlay.created_at)
+        )
+        return list(self.db.scalars(stmt))
 
     def get_by_id(self, scenario_id: uuid.UUID, overlay_id: uuid.UUID) -> ScenarioOverlay | None:
         return self.db.scalar(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -75,4 +76,14 @@ class ScenarioRepository:
 
     def delete(self, scenario: Scenario) -> None:
         self.db.delete(scenario)
+        self.db.flush()
+
+    def delete_all_non_base_for_user(self, user_id: uuid.UUID) -> None:
+        """Bulk delete every derived scenario -- used by account reset.
+        Cascades (ON DELETE CASCADE) take care of their transactions and
+        overlays. Base itself is never touched here, matching the same
+        immutability rule enforced everywhere else in the service layer."""
+        self.db.execute(
+            sa_delete(Scenario).where(Scenario.user_id == user_id, Scenario.is_base.is_(False))
+        )
         self.db.flush()
