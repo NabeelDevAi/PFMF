@@ -29,8 +29,6 @@ class Recurrence(StrEnum):
 
 
 class OverlayOp(StrEnum):
-    """Not consumed until the scenario_overlays table lands in milestone M4."""
-
     EXCLUDE = "exclude"
     OVERRIDE = "override"
 
@@ -38,15 +36,20 @@ class OverlayOp(StrEnum):
 class Origin(StrEnum):
     """How a transaction relates to Base in a resolved scenario view
     (architecture §6, §9.2). Never stored -- computed at read time by
-    whatever currently does resolution.
-
-    Milestone M3 only ever produces OWN (Base's own rows) or ADDED (a
-    derived scenario's own local rows), since there's no overlay support
-    yet to produce INHERITED or OVERRIDDEN -- a non-base scenario simply
-    doesn't show Base's transactions until the real resolver lands in M4.
-    """
+    ScenarioResolver."""
 
     OWN = "own"
     INHERITED = "inherited"
     OVERRIDDEN = "overridden"
     ADDED = "added"
+
+
+class DriverChange(StrEnum):
+    """How a comparison driver's contribution came about, between ledger A
+    and ledger B (architecture §8). Never stored -- computed at compare
+    time. Mirrors app.engine.types.DriverChange for the same
+    independent-vocabulary reason as the rest of this module."""
+
+    ADDED = "added"
+    REMOVED = "removed"
+    MODIFIED = "modified"
