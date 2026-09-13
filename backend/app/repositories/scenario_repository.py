@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models.scenario import Scenario
@@ -62,6 +62,14 @@ class ScenarioRepository:
         # Base first, then most recently created.
         stmt = stmt.order_by(Scenario.is_base.desc(), Scenario.created_at)
         return list(self.db.scalars(stmt))
+
+    def count_for_user(self, user_id: uuid.UUID) -> int:
+        """Includes archived scenarios -- they still exist and still
+        belong to the account, so still count against the cap. Used by
+        ScenarioService for the scenario.limit_reached check."""
+        return self.db.scalar(
+            select(func.count()).select_from(Scenario).where(Scenario.user_id == user_id)
+        )
 
     def save(self, scenario: Scenario) -> None:
         self.db.flush()

@@ -184,3 +184,55 @@ def test_scenario_not_found_for_another_user_returns_404_not_403(client: TestCli
 
     resp = client.delete(f"/v1/scenarios/{scenario['id']}", headers=headers_b)
     assert resp.status_code == 404
+
+
+def test_default_scenario_limit_is_fifty_plans_per_account(client: TestClient) -> None:
+    from app.core.config import get_settings
+
+    assert get_settings().max_scenarios_per_user == 50
+
+
+def _with_scenario_cap(monkeypatch, cap: int) -> None:
+    """Patches the name scenario_service.py actually uses it, rather than
+    reassigning a field on a cached pydantic-settings instance -- same
+    approach as the transaction-limit test in test_transactions.py."""
+    import app.services.scenario_service as scenario_service_module
+
+    real_settings = scenario_service_module.get_settings()
+    patched = real_settings.model_copy(update={"max_scenarios_per_user": cap})
+    monkeypatch.setattr(scenario_service_module, "get_settings", lambda: patched)
+
+
+def test_scenario_limit_reached(client: TestClient, monkeypatch) -> None:
+    headers = _auth_headers(client)
+    _with_scenario_cap(monkeypatch, cap=2)
+
+    # Base already counts as 1 toward the cap.
+    ok = client.post("/v1/scenarios", headers=headers, json={"name": "Plan A"})
+    assert ok.status_code == 201
+
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": "Plan B"})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "scenario.limit_reached"
+
+
+def test_duplicate_also_respects_the_scenario_limit(client: TestClient, monkeypatch) -> None:
+    headers = _auth_headers(client)
+    base_id = _list_scenarios(client, headers)[0]["id"]
+    _with_scenario_cap(monkeypatch, cap=1)  # only Base fits
+
+    resp = client.post(f"/v1/scenarios/{base_id}/duplicate", headers=headers, json={})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "scenario.limit_reached"
+
+
+def test_archived_scenarios_still_count_toward_the_limit(client: TestClient, monkeypatch) -> None:
+    headers = _auth_headers(client)
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": "To Archive"}).json()
+    client.post(f"/v1/scenarios/{plan['id']}/archive", headers=headers)
+
+    _with_scenario_cap(monkeypatch, cap=2)  # Base + the archived plan already fill it
+
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": "One More"})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "scenario.limit_reached"

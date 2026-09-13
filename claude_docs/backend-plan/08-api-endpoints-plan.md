@@ -19,6 +19,7 @@ All routes below sit under `/v1` and (except the ones marked public) require a v
 |---|---|---|
 | `GET /me` | Current user's identity/profile basics | — |
 | `PATCH /me/settings` | Update currency, locale, opening balance and its effective date | `validation.*` |
+| `DELETE /me` | Permanent account deletion (screen-flow F9), distinct from `/me/data` reset below. Not in the architecture doc's locked §9 list — built as a small addition, see `12-open-questions-and-future-hardening.md` §3 | — |
 
 Note: **opening balance changes are consequential** — every scenario's forecast shifts. The API accepts the change unconditionally; the screen-flow spec's requirement for a "preview the effect before confirming" experience is a client-side concern (the client can call the forecast endpoint with a hypothetical value before committing, if that pattern is chosen — no special backend support is needed for it).
 
@@ -27,8 +28,9 @@ Note: **opening balance changes are consequential** — every scenario's forecas
 | Endpoint | Purpose | Key error codes |
 |---|---|---|
 | `GET /categories` | List system categories (translated client-side by `key`) plus the caller's own user-defined ones | — |
+| `POST /categories` | Create a user category (name + direction only, no `key`) | `validation.*` |
 
-Phase 1 scope note: the architecture doc doesn't specify a create/edit endpoint for user categories explicitly as part of the locked API surface in §9 — if the transaction form needs to let users create a new category inline, that's a small additive endpoint to confirm during build, not assumed here.
+Built as a small addition beyond the architecture doc's locked §9 surface (see `12-open-questions-and-future-hardening.md` §3) — only creation, not edit/delete of a user category, matching what was actually asked for.
 
 ## 4. Scenarios (Plans)
 
@@ -80,4 +82,4 @@ There is deliberately no `/dashboard` and no `/charts` endpoint anywhere in this
 | `DELETE /me/data` | Full reset (RFP §4.8) | — |
 | `GET /me/export` | JSON export of the user's data (RFP §4.8; CSV is an open question, see `12-open-questions-and-future-hardening.md`) | — |
 
-A `DELETE /me` (full account deletion, distinct from a data reset) is implied by the screen-flow spec's F9 "Delete account" screen but isn't listed in the architecture doc's §9 API surface — flagged as a small gap to close during the auth/settings build milestone, not assumed here.
+`DELETE /me` (full account deletion, distinct from a data reset) is listed under §2 above, not here — it lives on the account resource itself, not "data."

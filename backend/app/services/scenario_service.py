@@ -13,6 +13,7 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.api.errors import APIError
+from app.core.config import get_settings
 from app.db.models.scenario import Scenario
 from app.repositories.scenario_repository import ScenarioRepository
 from app.repositories.transaction_repository import TransactionRepository
@@ -38,6 +39,7 @@ class ScenarioService:
     def create(
         self, user_id: uuid.UUID, *, name: str, opening_balance_override_minor: int | None = None
     ) -> Scenario:
+        self._check_capacity(user_id)
         self._check_name_available(user_id, name)
         return self.scenarios.create(
             user_id=user_id,
@@ -87,6 +89,7 @@ class ScenarioService:
         self, user_id: uuid.UUID, scenario_id: uuid.UUID, *, name: str | None = None
     ) -> Scenario:
         source = self.get(user_id, scenario_id)
+        self._check_capacity(user_id)
         new_name = name or f"{source.name} (copy)"
         self._check_name_available(user_id, new_name)
 
@@ -109,3 +112,13 @@ class ScenarioService:
     def _check_name_available(self, user_id: uuid.UUID, name: str) -> None:
         if self.scenarios.get_by_name(user_id, name) is not None:
             raise APIError("scenario.name_taken", {"field": "name"})
+
+    def _check_capacity(self, user_id: uuid.UUID) -> None:
+        # 50 plans per account (product decision, not derived from either
+        # locked doc -- both left the threshold as an open discovery
+        # question). Counts archived scenarios too; only Base is exempt,
+        # since it's created once at registration and this check never
+        # runs for it.
+        settings = get_settings()
+        if self.scenarios.count_for_user(user_id) >= settings.max_scenarios_per_user:
+            raise APIError("scenario.limit_reached")

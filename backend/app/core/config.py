@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     max_horizon_months: int = 120
     max_transactions_per_scenario: int = 500
+    max_scenarios_per_user: int = 50
 
     # Rate limiting (in-memory for this build -- see backend-plan/07 §6).
     rate_limit_auth_attempts_per_minute: int = 5
