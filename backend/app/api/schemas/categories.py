@@ -20,3 +20,8 @@ class CategoryOut(BaseModel):
 
 class CategoryListOut(BaseModel):
     items: list[CategoryOut]
+
+
+class CategoryCreate(BaseModel):
+    name: str
+    direction: Direction

@@ -6,6 +6,7 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from app.db.models.category import Category
+from app.domain.enums import Direction
 
 
 class CategoryRepository:
@@ -32,6 +33,14 @@ class CategoryRepository:
             .order_by(Category.direction, Category.sort_order)
         )
         return list(self.db.scalars(stmt))
+
+    def create(self, *, user_id: uuid.UUID, name: str, direction: Direction) -> Category:
+        # key stays NULL -- the category_naming CHECK constraint requires
+        # exactly one of (key, name) depending on whether user_id is set.
+        category = Category(user_id=user_id, name=name, direction=direction)
+        self.db.add(category)
+        self.db.flush()
+        return category
 
     def delete_all_owned_by_user(self, user_id: uuid.UUID) -> None:
         self.db.execute(delete(Category).where(Category.user_id == user_id))
