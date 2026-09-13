@@ -28,3 +28,11 @@ class UserRepository:
     def update_password(self, user: User, password_hash: str) -> None:
         user.password_hash = password_hash
         self.db.flush()
+
+    def delete(self, user: User) -> None:
+        """Cascades to everything the user owns -- user_settings,
+        categories, scenarios (and transitively their transactions and
+        overlays), refresh_tokens, password_reset_tokens -- via each
+        table's own ON DELETE CASCADE. Nothing else needs deleting."""
+        self.db.delete(user)
+        self.db.flush()

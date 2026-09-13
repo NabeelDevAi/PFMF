@@ -8,6 +8,7 @@ from app.api.schemas.export import ExportOut
 from app.api.schemas.me import MeOut, SettingsPatch
 from app.db.models.user import User
 from app.db.session import get_db
+from app.services.account_service import AccountService
 from app.services.export_service import ExportService
 from app.services.reset_service import ResetService
 from app.services.settings_service import SettingsService
@@ -43,4 +44,10 @@ def export_data(user: User = Depends(get_current_user), db: Session = Depends(ge
 @router.delete("/data", status_code=status.HTTP_204_NO_CONTENT)
 def reset_data(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> None:
     ResetService(db).reset(user.id)
+    db.commit()
+
+
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+def delete_account(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> None:
+    AccountService(db).delete_account(user.id)
     db.commit()
