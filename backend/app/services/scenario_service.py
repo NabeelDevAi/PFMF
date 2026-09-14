@@ -12,8 +12,8 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.api.errors import APIError
 from app.core.config import get_settings
+from app.core.errors import APIError
 from app.db.models.scenario import Scenario
 from app.repositories.scenario_repository import ScenarioRepository
 from app.repositories.transaction_repository import TransactionRepository

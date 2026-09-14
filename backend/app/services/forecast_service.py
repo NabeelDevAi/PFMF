@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.api.errors import APIError
+from app.core.errors import APIError
 from app.db.models.scenario import Scenario
 from app.engine.forecast import forecast as engine_forecast
 from app.engine.models import Ledger

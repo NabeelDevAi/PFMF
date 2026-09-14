@@ -19,3 +19,32 @@ testpaths = ["tests"]
 files = ["app/engine"]
 python_version = "3.12"
 strict = true
+
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Engine imports nothing outside itself"
+type = "forbidden"
+source_modules = "app.engine"
+forbidden_modules = [
+    "app.api",
+    "app.db",
+    "app.services",
+    "app.repositories",
+    "app.core",
+    "sqlalchemy",
+    "fastapi",
+    "pydantic",
+]
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture"
+type = "layers"
+layers = [
+    "app.api",
+    "app.services",
+    "app.repositories",
+    "app.db",
+]

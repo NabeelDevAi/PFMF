@@ -29,7 +29,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.api.errors import APIError
+from app.core.errors import APIError
 from app.repositories.category_repository import CategoryRepository
 from app.repositories.scenario_repository import ScenarioRepository
 from app.repositories.transaction_repository import TransactionRepository

@@ -23,7 +23,7 @@ No `docker-compose.yml` / `Dockerfile` for now — deployment packaging is out o
 
 `api` depends on `services`. `services` depends on `repositories` and on `engine`. `repositories` depends on `db`. `engine` depends on nothing in this list.
 
-This is enforced by code review discipline for now (no `import-linter` yet — see `12-open-questions-and-future-hardening.md`). The rule to hold the line on: if you find yourself importing SQLAlchemy, FastAPI, or Pydantic inside `app/engine/`, stop — the value belongs in a service, and the engine should receive a plain value instead.
+This is enforced mechanically by `import-linter` (see `12-open-questions-and-future-hardening.md` §1) as of Tier 2 #5. The rule to hold the line on regardless: if you find yourself importing SQLAlchemy, FastAPI, or Pydantic inside `app/engine/`, stop — the value belongs in a service, and the engine should receive a plain value instead.
 
 ## 3. Naming conventions
 

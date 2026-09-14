@@ -10,8 +10,8 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.api.errors import APIError
 from app.core.config import get_settings
+from app.core.errors import APIError
 from app.core.security import (
     encode_access_token,
     generate_refresh_token,

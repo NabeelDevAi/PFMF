@@ -15,7 +15,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.api.errors import APIError
+from app.core.errors import APIError
 from app.db.models.scenario_overlay import ScenarioOverlay
 from app.db.models.transaction import Transaction
 from app.domain.enums import OverlayOp, Recurrence

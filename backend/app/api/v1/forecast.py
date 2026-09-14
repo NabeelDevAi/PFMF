@@ -12,8 +12,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.api.errors import APIError
 from app.api.schemas.forecast import CompareOut, ForecastOut
+from app.core.errors import APIError
 from app.db.models.user import User
 from app.db.session import get_db
 from app.engine.types import YearMonth

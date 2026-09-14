@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.api.errors import APIError
+from app.core.errors import APIError
 from app.db.models.category import Category
 from app.db.models.scenario import Scenario
 from app.db.models.scenario_overlay import ScenarioOverlay

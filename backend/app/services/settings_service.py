@@ -5,7 +5,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.api.errors import APIError
+from app.core.errors import APIError
 from app.db.models.user_settings import UserSettings
 from app.repositories.user_settings_repository import UserSettingsRepository
 

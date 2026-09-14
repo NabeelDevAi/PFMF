@@ -11,7 +11,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.api.errors import APIError
+from app.core.errors import APIError
 from app.repositories.user_repository import UserRepository
 
 

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.api.errors import APIError
+from app.core.errors import APIError
 from app.engine.compare import compare as engine_compare
 from app.engine.models import Comparison
 from app.engine.types import YearMonth

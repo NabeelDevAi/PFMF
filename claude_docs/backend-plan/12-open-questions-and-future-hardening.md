@@ -5,7 +5,7 @@ Everything here is either deliberately deferred (a scope decision made in this p
 ## 1. Deliberately deferred in this build (see `11-build-order-and-milestones.md`, M6)
 
 - ~~`mypy --strict` on the engine module.~~ **Done** (Tier 2 #4): `[tool.mypy]` in `pyproject.toml`, scoped to `files = ["app/engine"]` only -- deliberately not expanded to the rest of the app. Clean on the first run, no fixes needed, since the engine already had full type hints throughout.
-- `import-linter` — engine-purity and layering are held by review discipline until this lands.
+- ~~`import-linter`~~ **Done** (Tier 2 #5): both contracts from the original spec (`engine-is-pure`, `layers`) in `[tool.importlinter]`. Its first run caught a real, pre-existing layering violation -- every service imported `APIError` from `app.api.errors`, backwards through the `api -> services -> repositories -> db` direction. Fixed by moving the error registry and `APIError` itself to `app.core.errors` (core sits below both api and services); `app.api.errors` now holds only the FastAPI-specific envelope/exception-handler code. Both contracts pass clean after the fix.
 - Hypothesis property-based fuzzing — the four core invariants are checked via hand-picked cases in the meantime (`10-testing-strategy.md`).
 - GitHub Actions CI and coverage gates.
 - OpenAPI export/regression check.

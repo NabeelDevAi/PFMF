@@ -6,7 +6,7 @@ This is the most important document in this folder. Everything else in the backe
 
 `app/engine/` imports nothing from `app/api`, `app/db`, `app/services`, `app/repositories`, or `app/core`, and nothing from SQLAlchemy, FastAPI, or Pydantic. It receives plain values (numbers, dates, strings, small dataclass-shaped objects) and returns plain values. No database call, no `date.today()`, no randomness, no mutation of its inputs.
 
-For this build, that boundary is held by **review discipline**, not a mechanical import-linter check yet (that tool adoption is deferred — see `12-open-questions-and-future-hardening.md`). The practical rule while building: if writing engine code and reaching for anything outside the standard library, stop and ask whether that value should instead be computed by the caller and handed in.
+That boundary is now held mechanically by `import-linter` (Tier 2 #5, see `12-open-questions-and-future-hardening.md`), not just review discipline. The practical rule while building remains the same: if writing engine code and reaching for anything outside the standard library, stop and ask whether that value should instead be computed by the caller and handed in.
 
 ## 2. What lives inside, and the order to build it in
 

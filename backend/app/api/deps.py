@@ -11,7 +11,7 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.api.errors import APIError
+from app.core.errors import APIError
 from app.core.security import decode_access_token
 from app.db.models.user import User
 from app.db.session import get_db

@@ -13,8 +13,8 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.api.errors import APIError
 from app.core.config import get_settings
+from app.core.errors import APIError
 from app.db.models.transaction import Transaction
 from app.domain.enums import Direction, Recurrence
 from app.repositories.category_repository import CategoryRepository

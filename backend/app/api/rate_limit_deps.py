@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from fastapi import Request
 
-from app.api.errors import APIError
 from app.core.config import get_settings
+from app.core.errors import APIError
 from app.core.rate_limit import limiter
 
 
