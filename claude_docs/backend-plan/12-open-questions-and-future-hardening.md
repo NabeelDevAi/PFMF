@@ -7,10 +7,10 @@ Everything here is either deliberately deferred (a scope decision made in this p
 - ~~`mypy --strict` on the engine module.~~ **Done** (Tier 2 #4): `[tool.mypy]` in `pyproject.toml`, scoped to `files = ["app/engine"]` only -- deliberately not expanded to the rest of the app. Clean on the first run, no fixes needed, since the engine already had full type hints throughout.
 - ~~`import-linter`~~ **Done** (Tier 2 #5): both contracts from the original spec (`engine-is-pure`, `layers`) in `[tool.importlinter]`. Its first run caught a real, pre-existing layering violation -- every service imported `APIError` from `app.api.errors`, backwards through the `api -> services -> repositories -> db` direction. Fixed by moving the error registry and `APIError` itself to `app.core.errors` (core sits below both api and services); `app.api.errors` now holds only the FastAPI-specific envelope/exception-handler code. Both contracts pass clean after the fix.
 - ~~Hypothesis property-based fuzzing~~ **Done** (Tier 2 #6): all four invariants from architecture §12.3 now run as genuine generated fuzzing, not just the hand-picked cases (which stay, as permanent pinned regression tests -- both layers are additive, not a replacement). Reconciliation/determinism/driver-completeness live in `tests/engine/test_properties.py` (200 examples each, pure engine, `tests/engine/strategies.py` generates realistic transaction sets). Isolation lives in `tests/services/test_scenario_resolver.py` against the real database, using Hypothesis's `st.data()` interleaved-draw pattern so each of 25 examples can create its own fresh user/scenario/overlay state inside one shared `db_session` fixture.
-- GitHub Actions CI and coverage gates.
-- OpenAPI export/regression check.
-- Automated Alembic drift check.
-- Docker packaging and any deployment story — not designed at all yet; this plan only covers local development.
+- GitHub Actions CI and coverage gates — considered (Tier 2 #7/#8) and explicitly **skipped by user decision**, not just left deferred: no CI pipeline exists to enforce either, and there's no remote-push cadence yet to make one worth maintaining. Revisit whenever that changes.
+- OpenAPI export/regression check — considered (Tier 2 #9) and **skipped**: no mobile consumer yet to protect, and without CI nothing would keep a committed snapshot honest anyway.
+- Automated Alembic drift check — considered (Tier 2 #10) and **skipped**, same reasoning: meaningless without the CI pipeline that would enforce it.
+- Docker packaging and any deployment story — considered (Tier 3) and **skipped by explicit user decision**: this build stays no-Docker (the original decision at session start), and there's no deployment target yet to design toward. Revisit only once there's an actual decision to deploy somewhere.
 - The in-memory rate limiter — fine for one local process, not fine the moment there's more than one.
 
 ## 2. Schema deviation introduced by this plan
