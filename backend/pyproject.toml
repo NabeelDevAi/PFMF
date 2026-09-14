@@ -12,3 +12,10 @@ ignore = ["B008"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.mypy]
+# Scoped to the engine only, per backend-plan/12's Tier 2 decision --
+# strict everywhere else is deferred, not silently expanded to it.
+files = ["app/engine"]
+python_version = "3.12"
+strict = true

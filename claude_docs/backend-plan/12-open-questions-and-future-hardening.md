@@ -4,7 +4,7 @@ Everything here is either deliberately deferred (a scope decision made in this p
 
 ## 1. Deliberately deferred in this build (see `11-build-order-and-milestones.md`, M6)
 
-- `mypy --strict` on the engine module.
+- ~~`mypy --strict` on the engine module.~~ **Done** (Tier 2 #4): `[tool.mypy]` in `pyproject.toml`, scoped to `files = ["app/engine"]` only -- deliberately not expanded to the rest of the app. Clean on the first run, no fixes needed, since the engine already had full type hints throughout.
 - `import-linter` — engine-purity and layering are held by review discipline until this lands.
 - Hypothesis property-based fuzzing — the four core invariants are checked via hand-picked cases in the meantime (`10-testing-strategy.md`).
 - GitHub Actions CI and coverage gates.
