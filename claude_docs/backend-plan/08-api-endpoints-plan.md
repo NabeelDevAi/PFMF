@@ -29,8 +29,10 @@ Note: **opening balance changes are consequential** — every scenario's forecas
 |---|---|---|
 | `GET /categories` | List system categories (translated client-side by `key`) plus the caller's own user-defined ones | — |
 | `POST /categories` | Create a user category (name + direction only, no `key`) | `validation.*` |
+| `PATCH /categories/{id}` | Rename and/or change direction of a user-owned category | — |
+| `DELETE /categories/{id}` | Delete a user-owned category | `category.in_use` |
 
-Built as a small addition beyond the architecture doc's locked §9 surface (see `12-open-questions-and-future-hardening.md` §3) — only creation, not edit/delete of a user category, matching what was actually asked for.
+Built as a small addition beyond the architecture doc's locked §9 surface (see `12-open-questions-and-future-hardening.md` §3). All four CRUD operations on a user category are now built. Ownership enforcement follows the same convention as everywhere else (09 §3): a system category or another user's category is 404-equivalent to PATCH/DELETE, never a distinguishable "forbidden." Deleting a category still referenced by a transaction or an overlay's override is rejected with `category.in_use` (409) rather than surfacing the underlying FK error.
 
 ## 4. Scenarios (Plans)
 

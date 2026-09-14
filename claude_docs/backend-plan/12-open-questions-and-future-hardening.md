@@ -19,8 +19,9 @@ The architecture doc's §5 DDL has no table for refresh tokens, but the auth des
 
 ## 3. Small API-surface gaps noticed while writing the endpoint plan
 
-- ~~A dedicated `DELETE /me`...~~ **Closed.** `DELETE /v1/me` (full account deletion, `app/services/account_service.py`) now exists, distinct from `DELETE /me/data` (reset). Cascades via existing `ON DELETE CASCADE`; an already-issued access token stops working immediately since `get_current_user` re-looks-up the user on every request. User category edit/delete are still not built — only create.
-- ~~User-created category creation...~~ **Closed.** `POST /v1/categories` (`CategoryService.create`) lets a user add their own category (name + direction, no `key`). Edit/delete of a user category are still not built — only what was explicitly scoped (creation).
+- ~~A dedicated `DELETE /me`...~~ **Closed.** `DELETE /v1/me` (full account deletion, `app/services/account_service.py`) now exists, distinct from `DELETE /me/data` (reset). Cascades via existing `ON DELETE CASCADE`; an already-issued access token stops working immediately since `get_current_user` re-looks-up the user on every request.
+- ~~User-created category creation...~~ **Closed.** `POST /v1/categories` (`CategoryService.create`) lets a user add their own category (name + direction, no `key`).
+- ~~User category edit/delete...~~ **Closed.** `PATCH /v1/categories/{id}` and `DELETE /v1/categories/{id}` now exist. Ownership follows the standing convention (09 §3): a system category (`user_id IS NULL`) or another user's is 404-equivalent, never a distinguishable "forbidden." Deleting a category still referenced by a transaction or an overlay's `ovr_category_id` is rejected with the new `category.in_use` (409) code rather than surfacing Postgres's FK error directly.
 
 ## 4. Genuinely unresolved (carried from the architecture and screen-flow docs' own open-questions sections)
 

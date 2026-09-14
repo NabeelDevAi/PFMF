@@ -56,3 +56,19 @@ class CategoryRepository:
                 or_(Category.user_id.is_(None), Category.user_id == user_id),
             )
         )
+
+    def get_owned_by_user(self, user_id: uuid.UUID, category_id: uuid.UUID) -> Category | None:
+        """Strictly this user's own -- unlike get_visible_to_user, a system
+        category never matches here. Used by PATCH/DELETE: a system
+        category, or another user's, is 404-equivalent (09 §3), same as
+        any other ownership check in this codebase."""
+        return self.db.scalar(
+            select(Category).where(Category.id == category_id, Category.user_id == user_id)
+        )
+
+    def save(self, category: Category) -> None:
+        self.db.flush()
+
+    def delete(self, category: Category) -> None:
+        self.db.delete(category)
+        self.db.flush()

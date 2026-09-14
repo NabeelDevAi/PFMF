@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 from app.db.models.scenario import Scenario
@@ -35,6 +35,20 @@ class OverlayRepository:
             .order_by(ScenarioOverlay.scenario_id, ScenarioOverlay.created_at)
         )
         return list(self.db.scalars(stmt))
+
+    def exists_with_category_for_user(self, user_id: uuid.UUID, category_id: uuid.UUID) -> bool:
+        """Same purpose as TransactionRepository.exists_with_category: an
+        ovr_category_id also has no ON DELETE rule against categories.
+        No user_id column here, so the join through Scenario (same as
+        list_all_for_user) is what scopes this to the caller."""
+        stmt = select(
+            exists().where(
+                ScenarioOverlay.ovr_category_id == category_id,
+                ScenarioOverlay.scenario_id == Scenario.id,
+                Scenario.user_id == user_id,
+            )
+        )
+        return bool(self.db.scalar(stmt))
 
     def get_by_id(self, scenario_id: uuid.UUID, overlay_id: uuid.UUID) -> ScenarioOverlay | None:
         return self.db.scalar(

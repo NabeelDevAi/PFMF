@@ -25,3 +25,8 @@ class CategoryListOut(BaseModel):
 class CategoryCreate(BaseModel):
     name: str
     direction: Direction
+
+
+class CategoryPatch(BaseModel):
+    name: str | None = None
+    direction: Direction | None = None

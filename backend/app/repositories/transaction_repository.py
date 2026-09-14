@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, exists, func, select
 from sqlalchemy.orm import Session
 
 from app.db.models.transaction import Transaction
@@ -56,6 +56,16 @@ class TransactionRepository:
     def delete(self, txn: Transaction) -> None:
         self.db.delete(txn)
         self.db.flush()
+
+    def exists_with_category(self, user_id: uuid.UUID, category_id: uuid.UUID) -> bool:
+        """Used by CategoryService.delete: categories.category_id has no
+        ON DELETE rule (RESTRICT by default), so this check is what turns
+        a raw IntegrityError into a clean category.in_use response instead
+        of an unhandled 500."""
+        stmt = select(
+            exists().where(Transaction.user_id == user_id, Transaction.category_id == category_id)
+        )
+        return bool(self.db.scalar(stmt))
 
     def delete_all_for_scenario(self, user_id: uuid.UUID, scenario_id: uuid.UUID) -> None:
         """Bulk delete -- used by account reset to empty Base's own

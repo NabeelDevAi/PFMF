@@ -44,6 +44,7 @@ ERROR_STATUS: dict[str, int] = {
     "overlay.target_not_in_base": 422,
     "overlay.already_exists": 409,
     "overlay.scenario_is_base": 422,  # addition: overlays can't target the Base scenario itself
+    "category.in_use": 409,  # addition: can't delete a user category still referenced
     "compare.same_scenario": 422,
     "forecast.invalid_horizon": 422,
     "resource.not_found": 404,
