@@ -18,14 +18,16 @@ This split is the direct consequence of the "lean now, harden later" decision �
 - Plain `pytest` across all layers above.
 - The full golden-fixture suite for the engine (one JSON file per case, discovered automatically — adding a test case is adding a file, not writing code).
 - Every named edge case from the architecture/backend-spec docs, each as its own descriptively-named test.
-- A small set of **hand-constructed** invariant checks standing in for full property-based testing: specific, deliberately varied transaction sets checked against the reconciliation identity (closing balance equals opening plus the signed sum of all occurrences), the isolation guarantee (arbitrary overlays on one scenario never change another scenario's ledger), determinism (same input run twice, identical output), and driver completeness (driver contributions sum exactly to the closing-balance delta). These are the same four invariants the original spec assigns to Hypothesis — here they're proven on a curated set of cases rather than via generated fuzzing, so the acceptance-critical guarantees are never left unverified even before Hypothesis is adopted.
+- A small set of **hand-constructed** invariant checks (`tests/engine/test_invariants.py`, `tests/services/test_scenario_resolver.py`): specific, deliberately varied transaction sets checked against the reconciliation identity, the isolation guarantee, determinism, and driver completeness. Kept as permanent, pinned regression tests even after Hypothesis landed (Tier 2 #6) — the two layers are additive, not a replacement.
 - Cross-user isolation tests at the repository layer (user A can never see or affect user B's data).
 - Ownership tests at the API layer (another user's resource id returns `resource.not_found`, not a 403 and not the data).
 
-**Deferred to the M6 hardening milestone, deliberately:**
-- `mypy --strict` on `app/engine/` (standard elsewhere).
-- `import-linter`, turning the engine-purity and layering rules from review discipline into a build-breaking check.
-- Hypothesis property-based tests, upgrading the hand-picked invariant checks above into actual generated fuzzing across the same four invariants.
+**Done ahead of the M6 hardening milestone (Tier 2, see `12-open-questions-and-future-hardening.md`):**
+- ~~`mypy --strict` on `app/engine/`~~ Done, scoped to the engine only (not "standard elsewhere" -- deliberately not expanded).
+- ~~`import-linter`~~ Done, both contracts; caught and fixed a real layering violation on its first run.
+- ~~Hypothesis property-based tests~~ Done, all four invariants: `tests/engine/test_properties.py` (reconciliation, determinism, driver completeness) and `tests/services/test_scenario_resolver.py` (isolation, against the real database).
+
+**Still deferred to the M6 hardening milestone:**
 - GitHub Actions CI running all of the above on every change.
 - Coverage gates (100% branch coverage on the engine, ≥85% overall).
 - OpenAPI export + regression check (fails if the generated spec changes without being committed).

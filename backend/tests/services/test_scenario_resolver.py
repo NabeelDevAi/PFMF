@@ -8,8 +8,11 @@ database, and the one named edge case deferred all the way from M1
 
 from __future__ import annotations
 
+import uuid
 from datetime import date
 
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 from sqlalchemy.orm import Session
 
 from app.db.models.scenario_overlay import ScenarioOverlay
@@ -207,6 +210,95 @@ def test_isolation_arbitrary_overlays_on_one_scenario_never_affect_another(
             ),
         ]
     )
+    db_session.commit()
+
+    a_after = resolver.resolve(user.id, scenario_a)
+    base_after = resolver.resolve(user.id, base)
+
+    assert a_before == a_after
+    assert base_before == base_after
+
+
+@st.composite
+def _domain_transaction_spec(draw: st.DrawFn) -> dict:
+    recurrence = draw(st.sampled_from(list(Recurrence)))
+    start_date = draw(st.dates(min_value=date(2018, 1, 1), max_value=date(2032, 12, 31)))
+    end_date = (
+        None
+        if recurrence is Recurrence.ONE_TIME
+        else draw(st.none() | st.dates(min_value=start_date, max_value=date(2033, 12, 31)))
+    )
+    return {
+        "name": "txn",
+        "amount_minor": draw(st.integers(min_value=1, max_value=5_000_000)),
+        "direction": draw(st.sampled_from(list(Direction))),
+        "recurrence": recurrence,
+        "start_date": start_date,
+        "end_date": end_date,
+        "category_id": None,
+        "notes": None,
+    }
+
+
+@st.composite
+def _overlay_spec(draw: st.DrawFn) -> dict:
+    op = draw(st.sampled_from(list(OverlayOp)))
+    ovr_amount_minor = (
+        None if op is OverlayOp.EXCLUDE else draw(st.integers(min_value=1, max_value=5_000_000))
+    )
+    return {"op": op, "ovr_amount_minor": ovr_amount_minor}
+
+
+@given(
+    base_specs=st.lists(_domain_transaction_spec(), min_size=1, max_size=8),
+    data=st.data(),
+)
+@settings(
+    max_examples=25,
+    deadline=None,
+    # db_session is deliberately shared across every example in this one
+    # test, not recreated per example: each example creates its own fresh
+    # user (unique uuid email) and never touches another example's rows,
+    # so there's nothing to reset between them, and cleanup happens once,
+    # after the whole test, via db_session's own teardown.
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
+def test_isolation_property(
+    db_session: Session, base_specs: list[dict], data: st.DataObject
+) -> None:
+    """Architecture §12.3's isolation invariant, generated: arbitrary
+    overlays applied to scenario B must never change scenario A's
+    resolved view, or Base's own -- against the real database, with
+    randomized Base transactions and randomized overlays targeting a
+    randomized subset of them."""
+    users = UserRepository(db_session)
+    scenarios = ScenarioRepository(db_session)
+    transactions = TransactionRepository(db_session)
+
+    user = users.create(email=f"iso-{uuid.uuid4()}@example.com", password_hash="x")
+    db_session.flush()
+    base = scenarios.create_base(user_id=user.id)
+    scenario_a = scenarios.create(user_id=user.id, name="A")
+    scenario_b = scenarios.create(user_id=user.id, name="B")
+    db_session.flush()
+
+    base_txns = [
+        transactions.create(user_id=user.id, scenario_id=base.id, **spec) for spec in base_specs
+    ]
+    db_session.commit()
+
+    resolver = ScenarioResolver(db_session)
+    a_before = resolver.resolve(user.id, scenario_a)
+    base_before = resolver.resolve(user.id, base)
+
+    targets = data.draw(
+        st.lists(st.sampled_from(base_txns), unique_by=lambda t: t.id, max_size=len(base_txns))
+    )
+    for txn in targets:
+        overlay_spec = data.draw(_overlay_spec())
+        db_session.add(
+            ScenarioOverlay(scenario_id=scenario_b.id, base_transaction_id=txn.id, **overlay_spec)
+        )
     db_session.commit()
 
     a_after = resolver.resolve(user.id, scenario_a)
