@@ -51,7 +51,7 @@ class ScenarioOverlay(Base):
     ovr_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     ovr_amount_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     ovr_category_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
     ovr_recurrence: Mapped[Recurrence | None] = mapped_column(
         pg_enum(Recurrence, "recurrence"), nullable=True

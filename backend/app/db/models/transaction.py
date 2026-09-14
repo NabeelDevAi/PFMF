@@ -51,7 +51,7 @@ class Transaction(Base):
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     direction: Mapped[Direction] = mapped_column(pg_enum(Direction, "direction"), nullable=False)
     category_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     recurrence: Mapped[Recurrence] = mapped_column(
