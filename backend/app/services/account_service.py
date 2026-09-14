@@ -7,12 +7,15 @@ flagged in claude_docs/backend-plan/12-open-questions-and-future-hardening.md.
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
 from app.repositories.user_repository import UserRepository
+
+logger = logging.getLogger("pfmf.auth")
 
 
 class AccountService:
@@ -29,3 +32,4 @@ class AccountService:
         # request and treats a missing user as auth.token_invalid, so no
         # separate token blocklist is needed for this.
         self.users.delete(user)
+        logger.info("account deleted", extra={"user_id": user_id})

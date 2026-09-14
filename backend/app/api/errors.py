@@ -6,12 +6,16 @@ this split exists (Tier 2 #5, import-linter).
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.errors import APIError
+
+logger = logging.getLogger("pfmf.errors")
 
 
 def _envelope(request: Request, code: str, params: dict) -> dict:
@@ -49,6 +53,12 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    # Previously this handler returned "internal" with zero server-side
+    # trace of what actually broke -- a genuine bug (anything that isn't
+    # a deliberate APIError) was silently swallowed. exc_info=exc works
+    # whether or not we're inside an active except block, unlike
+    # logger.exception() which relies on sys.exc_info() still being set.
+    logger.error("unhandled exception", exc_info=exc)
     return JSONResponse(status_code=500, content=_envelope(request, "internal", {}))
 
 

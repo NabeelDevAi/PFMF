@@ -14,10 +14,12 @@ from app.api.v1.overlays import router as overlays_router
 from app.api.v1.scenarios import router as scenarios_router
 from app.api.v1.transactions import scenario_transactions_router, transactions_router
 from app.core.config import get_settings
+from app.core.logging import configure_logging
 
 
 def create_app() -> FastAPI:
     settings = get_settings()  # instantiated eagerly so a missing required env var fails fast, now
+    configure_logging(settings.log_level)
 
     app = FastAPI(title="PFMF Backend", version="0.1.0")
 

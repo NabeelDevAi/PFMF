@@ -4,6 +4,7 @@ token flow. See backend-plan/06-services-module.md and 09-auth-and-security.md.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -27,6 +28,8 @@ from app.repositories.user_settings_repository import UserSettingsRepository
 from app.services.password_reset_sender import ConsolePasswordResetSender, PasswordResetSender
 
 MIN_PASSWORD_LENGTH = 8
+
+logger = logging.getLogger("pfmf.auth")
 
 
 @dataclass(frozen=True)
@@ -59,12 +62,17 @@ class AuthService:
         self.settings_repo.create_default(user_id=user.id, opening_balance_date=date.today())
         self.scenarios.create_base(user_id=user.id)
 
+        logger.info("user registered", extra={"user_id": user.id})
         return self._issue_tokens(user.id, family_id=uuid.uuid4())
 
     def login(self, *, email: str, password: str) -> TokenPair:
         user = self.users.get_by_email(email)
         if user is None or not verify_password(user.password_hash, password):
+            # Never log the attempted email -- there is nothing to
+            # correlate a failure to without it, by design.
+            logger.warning("login failed")
             raise APIError("auth.invalid_credentials")
+        logger.info("login succeeded", extra={"user_id": user.id})
         return self._issue_tokens(user.id, family_id=uuid.uuid4())
 
     def refresh(self, *, refresh_token: str) -> TokenPair:
@@ -81,6 +89,12 @@ class AuthService:
             # post-call commit, and this revocation must survive that.
             self.refresh_tokens.revoke_family(token.family_id)
             self.db.commit()
+            # Security-relevant: this is the actual replay signal, worth
+            # its own log line distinct from an ordinary invalid token.
+            logger.warning(
+                "refresh token reuse detected, family revoked",
+                extra={"user_id": token.user_id, "family_id": token.family_id},
+            )
             raise APIError("auth.token_invalid")
 
         if token.expires_at < datetime.now(UTC):
