@@ -96,6 +96,52 @@ def test_archive_and_unarchive_round_trip(client: TestClient) -> None:
     assert created["id"] in {s["id"] for s in _list_scenarios(client, headers)}
 
 
+def test_unarchive_a_scenario_that_is_not_archived_is_rejected(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    created = client.post("/v1/scenarios", headers=headers, json={"name": "Never archived"}).json()
+
+    resp = client.post(f"/v1/scenarios/{created['id']}/unarchive", headers=headers)
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "scenario.not_archived"
+
+
+def test_archived_scenario_is_rejected_as_a_duplicate_source(client: TestClient) -> None:
+    """Architecture §6.2: rejected as a duplicate source -- restore first
+    (screen-flow §8.1)."""
+    headers = _auth_headers(client)
+    created = client.post("/v1/scenarios", headers=headers, json={"name": "Someday"}).json()
+    client.post(f"/v1/scenarios/{created['id']}/archive", headers=headers)
+
+    resp = client.post(f"/v1/scenarios/{created['id']}/duplicate", headers=headers, json={})
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "scenario.archived"
+
+
+def test_archived_scenario_is_rejected_as_a_compare_operand(client: TestClient) -> None:
+    """Architecture §6.2: rejected as a comparison operand."""
+    headers = _auth_headers(client)
+    base_id = _list_scenarios(client, headers)[0]["id"]
+    created = client.post("/v1/scenarios", headers=headers, json={"name": "Someday"}).json()
+    client.post(f"/v1/scenarios/{created['id']}/archive", headers=headers)
+
+    resp = client.get(
+        "/v1/forecast/compare",
+        headers=headers,
+        params={"a": base_id, "b": created["id"], "horizon": 12},
+    )
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "scenario.archived"
+
+    # Order doesn't matter -- an archived A is rejected too.
+    resp = client.get(
+        "/v1/forecast/compare",
+        headers=headers,
+        params={"a": created["id"], "b": base_id, "horizon": 12},
+    )
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "scenario.archived"
+
+
 def test_patch_scenario_rename_and_current_balance_override(client: TestClient) -> None:
     headers = _auth_headers(client)
     created = client.post("/v1/scenarios", headers=headers, json={"name": "Draft"}).json()

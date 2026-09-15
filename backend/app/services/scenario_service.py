@@ -87,6 +87,8 @@ class ScenarioService:
 
     def unarchive(self, user_id: uuid.UUID, scenario_id: uuid.UUID) -> Scenario:
         scenario = self.get(user_id, scenario_id)
+        if scenario.archived_at is None:
+            raise APIError("scenario.not_archived")
         self.scenarios.unarchive(scenario)
         return scenario
 
@@ -94,6 +96,11 @@ class ScenarioService:
         self, user_id: uuid.UUID, scenario_id: uuid.UUID, *, name: str | None = None
     ) -> Scenario:
         source = self.get(user_id, scenario_id)
+        if source.archived_at is not None:
+            # Architecture §6.2: rejected as a duplicate source -- restore
+            # first (screen-flow §8.1). Checked before capacity/name so an
+            # archived source never spends a slot in either check first.
+            raise APIError("scenario.archived")
         self._check_capacity(user_id)
         new_name = name or f"{source.name} (copy)"
         self._check_name_available(user_id, new_name)

@@ -44,9 +44,9 @@ Built as a small addition beyond the architecture doc's locked §9 surface (see 
 | `GET /scenarios/{id}` | Plan detail | `resource.not_found` |
 | `PATCH /scenarios/{id}` | Rename, change the Current Cash Balance override (amount only — D-14) | `scenario.base_immutable` (if attempted on Base for a field that shouldn't move), `resource.not_found` |
 | `DELETE /scenarios/{id}` | Delete a plan | `scenario.base_immutable`, `resource.not_found` |
-| `POST /scenarios/{id}/duplicate` | Copy a plan's own transactions and overlays (no parent link created) | `resource.not_found` |
+| `POST /scenarios/{id}/duplicate` | Copy a plan's own transactions and overlays (no parent link created) | `scenario.archived` (archived scenarios can't be a duplicate source — architecture §6.2), `resource.not_found` |
 | `POST /scenarios/{id}/archive` | Archive | `scenario.base_immutable`, `resource.not_found` |
-| `POST /scenarios/{id}/unarchive` | Restore from archive | `resource.not_found` |
+| `POST /scenarios/{id}/unarchive` | Restore from archive | `scenario.not_archived`, `resource.not_found` |
 
 ## 5. Transactions
 
@@ -73,7 +73,7 @@ Built as a small addition beyond the architecture doc's locked §9 surface (see 
 | Endpoint | Purpose | Key error codes |
 |---|---|---|
 | `GET /scenarios/{id}/forecast?horizon=&anchor=` | The one payload that feeds the dashboard, all three forecast chart views, the monthly table, and month breakdown | `forecast.invalid_horizon`, `resource.not_found` |
-| `GET /forecast/compare?a=&b=&horizon=&anchor=` | Two ledgers aligned by month, plus deltas and the drivers list | `compare.same_scenario`, `forecast.invalid_horizon`, `resource.not_found` |
+| `GET /forecast/compare?a=&b=&horizon=&anchor=` | Two ledgers aligned by month, plus deltas and the drivers list | `compare.same_scenario`, `scenario.archived` (either operand — architecture §6.2), `forecast.invalid_horizon`, `resource.not_found` |
 
 `anchor` is optional on both and, if omitted, is resolved from the current date **in the API layer**, never inside the engine — see `06-services-module.md` (`ForecastService`). Accepting an explicit anchor is what lets a fixed test case or a client bug report be reproduced exactly, at zero extra cost.
 

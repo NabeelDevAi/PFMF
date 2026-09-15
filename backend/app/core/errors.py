@@ -43,6 +43,8 @@ ERROR_STATUS: dict[str, int] = {
     "scenario.base_immutable": 409,
     "scenario.name_taken": 409,
     "scenario.limit_reached": 422,
+    "scenario.archived": 409,  # rejected as a compare operand or a duplicate source
+    "scenario.not_archived": 409,  # unarchive attempted on a scenario that isn't archived
     "overlay.target_not_in_base": 422,
     "overlay.already_exists": 409,
     "overlay.scenario_is_base": 422,  # addition: overlays can't target the Base scenario itself
