@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models.scenario import Scenario
@@ -62,18 +62,6 @@ class ScenarioRepository:
         # Base first, then most recently created.
         stmt = stmt.order_by(Scenario.is_base.desc(), Scenario.created_at)
         return list(self.db.scalars(stmt))
-
-    def count_for_user(self, user_id: uuid.UUID) -> int:
-        """Excludes archived scenarios (architecture §6.2: "archived
-        scenarios do not count toward any scenario cap") -- archiving is
-        meant to actually declutter an account against the cap, not just
-        the switcher/list. Used by ScenarioService for the
-        scenario.limit_reached check."""
-        return self.db.scalar(
-            select(func.count())
-            .select_from(Scenario)
-            .where(Scenario.user_id == user_id, Scenario.archived_at.is_(None))
-        )
 
     def save(self, scenario: Scenario) -> None:
         self.db.flush()

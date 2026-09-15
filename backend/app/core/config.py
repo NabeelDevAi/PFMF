@@ -38,8 +38,6 @@ class Settings(BaseSettings):
     cors_origins: list[str] = []
     log_level: str = "INFO"
     max_horizon_months: int = 120
-    max_transactions_per_scenario: int = 500
-    max_scenarios_per_user: int = 50
     # Hard backstop on PUT /me/balance's as-of date (balance.as_of_too_old).
     # Distinct from the dashboard's stale-balance *prompt* threshold (a soft
     # UX nudge, proposed at 30 days in screen-flow §5.1/§14 -- unrelated,

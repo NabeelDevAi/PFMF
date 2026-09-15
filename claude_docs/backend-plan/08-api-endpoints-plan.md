@@ -40,7 +40,7 @@ Built as a small addition beyond the architecture doc's locked §9 surface (see 
 | Endpoint | Purpose | Key error codes |
 |---|---|---|
 | `GET /scenarios?include_archived=` | List the caller's plans | — |
-| `POST /scenarios` | Create a plan (optionally with a starting-balance override) | `scenario.name_taken`, `scenario.limit_reached`, `validation.*` |
+| `POST /scenarios` | Create a plan (optionally with a starting-balance override) | `scenario.name_taken`, `validation.*` |
 | `GET /scenarios/{id}` | Plan detail | `resource.not_found` |
 | `PATCH /scenarios/{id}` | Rename, change the Current Cash Balance override (amount only — D-14) | `scenario.base_immutable` (if attempted on Base for a field that shouldn't move), `resource.not_found` |
 | `DELETE /scenarios/{id}` | Delete a plan | `scenario.base_immutable`, `resource.not_found` |

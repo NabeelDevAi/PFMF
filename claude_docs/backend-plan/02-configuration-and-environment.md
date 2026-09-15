@@ -16,10 +16,12 @@ Settings are environment-driven (Pydantic `BaseSettings` at implementation time)
 | `jwt_refresh_ttl_days` | Refresh token lifetime | 30 (per architecture) |
 | `cors_origins` | Allowed origins for the Flutter dev client | Local dev origins only for now |
 | `log_level` | Logging verbosity | `INFO` locally, adjustable |
-| `max_horizon_months` | Forecast horizon cap | 120 |
-| `max_transactions_per_scenario` | Per-scenario transaction cap | 500 |
+| `max_horizon_months` | Forecast horizon cap (the request-range validation, not an account-scarcity limit — see below) | 120 |
+| `balance_as_of_max_age_years` | Hard backstop on `PUT /me/balance`'s as-of date | 5 |
 | `password_reset_sender` | Which email-sending implementation to use | A stub/console sender locally (see `09-auth-and-security.md`) |
 | Rate-limit thresholds | Login/register/password-reset limits | As specified in `09-auth-and-security.md` |
+
+**No setting for a scenario or per-scenario transaction cap.** Both existed briefly (`max_scenarios_per_user`, `max_transactions_per_scenario`) and were removed by explicit product decision — no limit on how many plans or transactions an account can hold.
 
 ## 3. Local PostgreSQL setup
 

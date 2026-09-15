@@ -39,10 +39,8 @@ ERROR_STATUS: dict[str, int] = {
     "transaction.end_before_start": 422,
     "transaction.one_time_has_end_date": 422,
     "transaction.direction_immutable": 422,
-    "transaction.limit_reached": 422,
     "scenario.base_immutable": 409,
     "scenario.name_taken": 409,
-    "scenario.limit_reached": 422,
     "scenario.archived": 409,  # rejected as a compare operand or a duplicate source
     "scenario.not_archived": 409,  # unarchive attempted on a scenario that isn't archived
     "overlay.target_not_in_base": 422,

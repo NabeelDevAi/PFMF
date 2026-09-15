@@ -27,23 +27,30 @@ This table is a contract with the mobile client as much as it's an internal refe
 | `auth.token_expired` | 401 | Access token expired — client should refresh |
 | `auth.token_invalid` | 401 | Malformed or revoked token |
 | `auth.weak_password` | 422 | Password below policy |
+| `auth.reset_token_invalid` | 422 | Password-reset token invalid, expired, or already used |
+| `balance.as_of_in_future` | 422 | `PUT /me/balance`'s as-of date is later than today |
+| `balance.as_of_too_old` | 422 | `PUT /me/balance`'s as-of date is beyond the 5-year backstop |
 | `validation.required` | 422 | A required field is missing |
 | `validation.invalid` | 422 | Generic field validation failure |
 | `transaction.amount_not_positive` | 422 | Amount is zero or negative |
 | `transaction.end_before_start` | 422 | End date precedes start date |
 | `transaction.one_time_has_end_date` | 422 | A one-time transaction was given an end date |
 | `transaction.direction_immutable` | 422 | Attempt to flip income ↔ expense on an existing transaction |
-| `transaction.limit_reached` | 422 | Per-scenario transaction cap reached |
 | `scenario.base_immutable` | 409 | Attempt to delete or archive the Base plan |
 | `scenario.name_taken` | 409 | Duplicate scenario name for this user |
-| `scenario.limit_reached` | 422 | Per-user scenario cap reached (cap value TBD — see open questions) |
+| `scenario.archived` | 409 | An archived scenario used as a comparison operand or a duplicate source |
+| `scenario.not_archived` | 409 | Unarchive attempted on a scenario that isn't archived |
 | `overlay.target_not_in_base` | 422 | An overlay was pointed at a transaction that isn't in Base |
 | `overlay.already_exists` | 409 | A second overlay was attempted against the same target |
+| `overlay.scenario_is_base` | 422 | An overlay was attempted on the Base scenario itself |
+| `category.in_use` | 409 | Deleting a user category still referenced by a transaction or an overlay |
 | `compare.same_scenario` | 422 | Plan A and Plan B are the same scenario |
-| `forecast.invalid_horizon` | 422 | Horizon isn't one of 12 / 36 / 60 / 120 |
+| `forecast.invalid_horizon` | 422 | Horizon is outside `[1, max_horizon_months]` |
 | `resource.not_found` | 404 | Also returned when the resource exists but belongs to another user |
 | `rate_limited` | 429 | Too many attempts on a rate-limited route |
 | `internal` | 500 | Unhandled server error |
+
+**No cap on the number of scenarios or transactions an account can hold** — `scenario.limit_reached` and `transaction.limit_reached` existed briefly this build (a 50-plan / 500-per-scenario product decision, made when neither locked doc addressed the question) and were removed by explicit later decision. If a cap is wanted again, it returns as a new code through the same reviewed-change process as any other addition here, not a silent revert.
 
 **`resource.not_found` for another user's resource is deliberate, not a bug to fix later.** Returning 403 instead would confirm to a caller that the resource exists at all, which is itself information leakage in a financial product.
 

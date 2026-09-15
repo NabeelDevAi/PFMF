@@ -227,34 +227,25 @@ def test_delete_transaction(client: TestClient) -> None:
     assert listed == []
 
 
-def test_transaction_limit_reached(client: TestClient, monkeypatch) -> None:
-    # Patch the name where transaction_service.py actually uses it, rather
-    # than the Settings class itself -- reassigning a field on a cached
-    # pydantic-settings instance isn't a supported/reliable operation.
-    import app.services.transaction_service as transaction_service_module
-
-    real_settings = transaction_service_module.get_settings()
-    patched = real_settings.model_copy(update={"max_transactions_per_scenario": 2})
-    monkeypatch.setattr(transaction_service_module, "get_settings", lambda: patched)
-
+def test_no_limit_on_number_of_transactions_per_scenario(client: TestClient) -> None:
+    """Explicit product decision: no cap on how many transactions a plan
+    can hold (supersedes the earlier 500-per-scenario cap). Creating well
+    past a plausible old threshold must keep working."""
     headers = _auth_headers(client)
     scenario_id = _base_scenario_id(client, headers)
-    _create_txn(client, headers, scenario_id, name="One")
-    _create_txn(client, headers, scenario_id, name="Two")
-
-    resp = client.post(
-        f"/v1/scenarios/{scenario_id}/transactions",
-        headers=headers,
-        json={
-            "name": "Three",
-            "amount_minor": 1000,
-            "direction": "expense",
-            "recurrence": "monthly",
-            "start_date": "2026-01-01",
-        },
-    )
-    assert resp.status_code == 422
-    assert resp.json()["error"]["code"] == "transaction.limit_reached"
+    for i in range(20):
+        resp = client.post(
+            f"/v1/scenarios/{scenario_id}/transactions",
+            headers=headers,
+            json={
+                "name": f"Txn {i}",
+                "amount_minor": 1000,
+                "direction": "expense",
+                "recurrence": "monthly",
+                "start_date": "2026-01-01",
+            },
+        )
+        assert resp.status_code == 201
 
 
 def test_transaction_not_found_for_another_user_returns_404(client: TestClient) -> None:

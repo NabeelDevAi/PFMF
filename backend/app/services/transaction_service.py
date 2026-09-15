@@ -13,7 +13,6 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.errors import APIError
 from app.db.models.scenario import Scenario
 from app.db.models.transaction import Transaction
@@ -63,7 +62,6 @@ class TransactionService:
         notes: str | None = None,
     ) -> Transaction:
         self._get_scenario(user_id, scenario_id)
-        self._check_scenario_capacity(user_id, scenario_id)
         self._check_amount(amount_minor)
         self._check_dates(recurrence, start_date, end_date)
         self._check_category(user_id, category_id)
@@ -140,14 +138,6 @@ class TransactionService:
         if scenario is None:
             raise APIError("resource.not_found")
         return scenario
-
-    def _check_scenario_capacity(self, user_id: uuid.UUID, scenario_id: uuid.UUID) -> None:
-        settings = get_settings()
-        if (
-            self.transactions.count_for_scenario(user_id, scenario_id)
-            >= settings.max_transactions_per_scenario
-        ):
-            raise APIError("transaction.limit_reached")
 
     def _check_amount(self, amount_minor: int) -> None:
         if amount_minor <= 0:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import delete, exists, func, select
+from sqlalchemy import delete, exists, select
 from sqlalchemy.orm import Session
 
 from app.db.models.transaction import Transaction
@@ -36,13 +36,6 @@ class TransactionRepository:
             .order_by(Transaction.scenario_id, Transaction.created_at)
         )
         return list(self.db.scalars(stmt))
-
-    def count_for_scenario(self, user_id: uuid.UUID, scenario_id: uuid.UUID) -> int:
-        return self.db.scalar(
-            select(func.count())
-            .select_from(Transaction)
-            .where(Transaction.scenario_id == scenario_id, Transaction.user_id == user_id)
-        )
 
     def create(self, *, user_id: uuid.UUID, scenario_id: uuid.UUID, **fields) -> Transaction:
         txn = Transaction(user_id=user_id, scenario_id=scenario_id, **fields)

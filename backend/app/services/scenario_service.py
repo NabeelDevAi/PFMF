@@ -15,7 +15,6 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.errors import APIError
 from app.db.models.scenario import Scenario
 from app.repositories.overlay_repository import OverlayRepository
@@ -44,7 +43,6 @@ class ScenarioService:
     def create(
         self, user_id: uuid.UUID, *, name: str, current_balance_override_minor: int | None = None
     ) -> Scenario:
-        self._check_capacity(user_id)
         self._check_name_available(user_id, name)
         return self.scenarios.create(
             user_id=user_id,
@@ -98,10 +96,8 @@ class ScenarioService:
         source = self.get(user_id, scenario_id)
         if source.archived_at is not None:
             # Architecture §6.2: rejected as a duplicate source -- restore
-            # first (screen-flow §8.1). Checked before capacity/name so an
-            # archived source never spends a slot in either check first.
+            # first (screen-flow §8.1).
             raise APIError("scenario.archived")
-        self._check_capacity(user_id)
         new_name = name or f"{source.name} (copy)"
         self._check_name_available(user_id, new_name)
 
@@ -131,15 +127,3 @@ class ScenarioService:
     def _check_name_available(self, user_id: uuid.UUID, name: str) -> None:
         if self.scenarios.get_by_name(user_id, name) is not None:
             raise APIError("scenario.name_taken", {"field": "name"})
-
-    def _check_capacity(self, user_id: uuid.UUID) -> None:
-        # 50 plans per account -- the threshold itself is a product
-        # decision, not derived from either locked doc (both left it as
-        # an open discovery question), but *whether archived scenarios
-        # count* is now locked (architecture §6.2): they don't.
-        # ScenarioRepository.count_for_user() excludes them. Base is
-        # separately exempt, since it's created once at registration and
-        # this check never runs for it.
-        settings = get_settings()
-        if self.scenarios.count_for_user(user_id) >= settings.max_scenarios_per_user:
-            raise APIError("scenario.limit_reached")
