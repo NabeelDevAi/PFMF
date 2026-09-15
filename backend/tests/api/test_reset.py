@@ -15,16 +15,15 @@ def _auth_headers(client: TestClient, email: str = "reset@example.com") -> dict[
 
 
 def _setup_data(client: TestClient, headers: dict) -> dict:
+    client.put(
+        "/v1/me/balance",
+        headers=headers,
+        json={"current_balance_minor": 500000, "balance_as_of": "2026-01-01"},
+    )
     client.patch(
         "/v1/me/settings",
         headers=headers,
-        json={
-            "current_balance_minor": 500000,
-            "balance_as_of": "2026-01-01",
-            "currency_code": "USD",
-            "locale": "ar",
-            "display_name": "Nabeel",
-        },
+        json={"currency_code": "USD", "locale": "ar", "display_name": "Nabeel"},
     )
     base_id = client.get("/v1/scenarios", headers=headers).json()["items"][0]["id"]
     rent = client.post(

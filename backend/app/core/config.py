@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     max_horizon_months: int = 120
     max_transactions_per_scenario: int = 500
     max_scenarios_per_user: int = 50
+    # Hard backstop on PUT /me/balance's as-of date (balance.as_of_too_old).
+    # Distinct from the dashboard's stale-balance *prompt* threshold (a soft
+    # UX nudge, proposed at 30 days in screen-flow §5.1/§14 -- unrelated,
+    # client-side only, no backend setting). Product decision, not derived
+    # from either locked doc.
+    balance_as_of_max_age_years: int = 5
 
     # Rate limiting (in-memory for this build -- see backend-plan/07 §6).
     rate_limit_auth_attempts_per_minute: int = 5

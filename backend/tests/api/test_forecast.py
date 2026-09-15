@@ -37,8 +37,8 @@ def _base_id(client: TestClient, headers: dict) -> str:
 
 
 def _set_current_balance(client: TestClient, headers: dict, amount_minor: int) -> None:
-    resp = client.patch(
-        "/v1/me/settings",
+    resp = client.put(
+        "/v1/me/balance",
         headers=headers,
         json={"current_balance_minor": amount_minor, "balance_as_of": "2026-01-01"},
     )

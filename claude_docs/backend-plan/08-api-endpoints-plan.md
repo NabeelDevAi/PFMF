@@ -18,10 +18,11 @@ All routes below sit under `/v1` and (except the ones marked public) require a v
 | Endpoint | Purpose | Key error codes |
 |---|---|---|
 | `GET /me` | Current user's identity/profile basics | — |
-| `PATCH /me/settings` | Update currency, locale, the Current Cash Balance and its as-of date | `validation.*` |
+| `PATCH /me/settings` | Update currency, locale, display name — **not** the Current Cash Balance (see below) | `validation.*` |
+| `PUT /me/balance` | The *only* write path for the Current Cash Balance + its as-of date (D-04, architecture §9.1) | `balance.as_of_in_future`, `balance.as_of_too_old` |
 | `DELETE /me` | Permanent account deletion (screen-flow F9), distinct from `/me/data` reset below. Not in the architecture doc's locked §9 list — built as a small addition, see `12-open-questions-and-future-hardening.md` §3 | — |
 
-Note: **Current Cash Balance changes are consequential** — every scenario's forecast shifts. The API accepts the change unconditionally; the screen-flow spec's requirement for a "preview the effect before confirming" experience is a client-side concern (the client can call the forecast endpoint with a hypothetical value before committing, if that pattern is chosen — no special backend support is needed for it).
+Note: **Current Cash Balance changes are consequential** — every scenario's forecast shifts. Deliberately split into its own endpoint rather than folded into settings, so that consequence stays visible in the API, the logs and the client code (architecture §9.1). The API accepts a well-formed change unconditionally beyond the two date guards above; the screen-flow spec's requirement for a "preview the effect before confirming" experience is a client-side concern (the client can call the forecast endpoint with a hypothetical value before committing, if that pattern is chosen — no special backend support is needed for it).
 
 ## 3. Categories
 

@@ -31,6 +31,8 @@ ERROR_STATUS: dict[str, int] = {
     "auth.token_invalid": 401,
     "auth.weak_password": 422,
     "auth.reset_token_invalid": 422,  # addition: invalid/expired/already-used reset token
+    "balance.as_of_in_future": 422,
+    "balance.as_of_too_old": 422,
     "validation.required": 422,
     "validation.invalid": 422,
     "transaction.amount_not_positive": 422,

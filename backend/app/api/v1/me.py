@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.api.schemas.export import ExportOut
-from app.api.schemas.me import MeOut, SettingsPatch
+from app.api.schemas.me import BalanceUpdate, MeOut, SettingsPatch
 from app.db.models.user import User
 from app.db.session import get_db
 from app.services.account_service import AccountService
@@ -29,6 +29,25 @@ def patch_settings(
     body: SettingsPatch, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> MeOut:
     settings = SettingsService(db).patch(user.id, **body.model_dump(exclude_unset=True))
+    db.commit()
+    return MeOut.model_validate(
+        {"id": user.id, "email": user.email, "created_at": user.created_at, "settings": settings}
+    )
+
+
+@router.put("/balance", response_model=MeOut)
+def update_balance(
+    body: BalanceUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> MeOut:
+    """The only write path for the Current Cash Balance (D-04, architecture
+    §9.1) -- deliberately separate from PATCH /me/settings so this
+    endpoint's consequence (every forecast in every scenario re-anchors)
+    stays visible in the API, the logs, and the client code."""
+    settings = SettingsService(db).update_balance(
+        user.id,
+        current_balance_minor=body.current_balance_minor,
+        balance_as_of=body.balance_as_of,
+    )
     db.commit()
     return MeOut.model_validate(
         {"id": user.id, "email": user.email, "created_at": user.created_at, "settings": settings}
