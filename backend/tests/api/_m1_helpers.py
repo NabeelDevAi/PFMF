@@ -1,0 +1,148 @@
+"""Shared helpers for the M1 Part 2 §25-28 integration cases (Part B of
+backend-plan/12 §6 item 9). Not a test file itself -- pytest only
+collects test_*.py.
+
+Every case builds its own fresh user and its own fresh Base Plan from
+scratch (never chains through another case's mutations), matching how
+the M1 document itself scopes each case: several cases explicitly
+restate an earlier case's starting figure ("Plan 'Rent Ends' (case
+25.5) ... December was 312,900") rather than continuing a running
+narrative, which only makes sense if each is independently
+reproducible from the same original Base Plan.
+
+All money in these helpers is in minor units (halalas, x100 SAR) to
+match the API; the M1 document itself uses whole riyals.
+"""
+
+from __future__ import annotations
+
+import uuid
+
+from fastapi.testclient import TestClient
+
+# The shared Base Plan (M1 §25, "Every case in this section uses the
+# same Base Plan, defined once below"): Current Cash Balance 45,000 as
+# of 01-01-2026, Salary 25,000/monthly from the 25th, Rent 4,500/monthly
+# from the 1st, Utilities 800/monthly from the 5th. None of the three
+# ever needs month-end clamping, so the monthly net is a flat 19,700
+# (1,970,000 minor) for as long as all three are unmodified.
+BALANCE_MINOR = 4_500_000
+BALANCE_AS_OF = "2026-01-01"
+SALARY_MINOR = 2_500_000
+RENT_MINOR = 450_000
+UTILITIES_MINOR = 80_000
+MONTHLY_NET_MINOR = SALARY_MINOR - RENT_MINOR - UTILITIES_MINOR  # 1,970,000 = 19,700 SAR
+
+
+def register(client: TestClient, email: str | None = None) -> dict[str, str]:
+    email = email or f"m1-{uuid.uuid4()}@example.com"
+    resp = client.post("/v1/auth/register", json={"email": email, "password": "correct-horse"})
+    assert resp.status_code == 201, resp.text
+    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+
+
+def base_scenario_id(client: TestClient, headers: dict) -> str:
+    return client.get("/v1/scenarios", headers=headers).json()["items"][0]["id"]
+
+
+def setup_base_plan(client: TestClient, headers: dict) -> dict[str, str]:
+    """Registers the Current Cash Balance and the three shared items on
+    Base. Returns the ids needed by later steps (base scenario, and each
+    of the three transactions, keyed by name)."""
+    resp = client.put(
+        "/v1/me/balance",
+        headers=headers,
+        json={"current_balance_minor": BALANCE_MINOR, "balance_as_of": BALANCE_AS_OF},
+    )
+    assert resp.status_code == 200, resp.text
+
+    base_id = base_scenario_id(client, headers)
+
+    salary = _add_transaction(
+        client, headers, base_id, "Salary", SALARY_MINOR, "income", "2026-01-25"
+    )
+    rent = _add_transaction(client, headers, base_id, "Rent", RENT_MINOR, "expense", "2026-01-01")
+    utilities = _add_transaction(
+        client, headers, base_id, "Utilities", UTILITIES_MINOR, "expense", "2026-01-05"
+    )
+    return {
+        "base_id": base_id,
+        "salary_id": salary["id"],
+        "rent_id": rent["id"],
+        "utilities_id": utilities["id"],
+    }
+
+
+def _add_transaction(
+    client: TestClient,
+    headers: dict,
+    scenario_id: str,
+    name: str,
+    amount_minor: int,
+    direction: str,
+    start_date: str,
+) -> dict:
+    resp = client.post(
+        f"/v1/scenarios/{scenario_id}/transactions",
+        headers=headers,
+        json={
+            "name": name,
+            "amount_minor": amount_minor,
+            "direction": direction,
+            "recurrence": "monthly",
+            "start_date": start_date,
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+def create_plan(client: TestClient, headers: dict, name: str, **overrides) -> dict:
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": name, **overrides})
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+def forecast(
+    client: TestClient,
+    headers: dict,
+    scenario_id: str,
+    *,
+    horizon: int = 12,
+    anchor: str = "2026-01",
+) -> dict:
+    resp = client.get(
+        f"/v1/scenarios/{scenario_id}/forecast",
+        headers=headers,
+        params={"horizon": horizon, "anchor": anchor},
+    )
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+def december_2026_closing(client: TestClient, headers: dict, scenario_id: str) -> int:
+    """The figure almost every §25 case is stated against."""
+    return forecast(client, headers, scenario_id, horizon=12)["months"][-1]["closing_balance_minor"]
+
+
+def resolved_transactions(client: TestClient, headers: dict, scenario_id: str) -> list[dict]:
+    resp = client.get(f"/v1/scenarios/{scenario_id}/transactions", headers=headers)
+    assert resp.status_code == 200, resp.text
+    return resp.json()["items"]
+
+
+def by_name(items: list[dict], name: str) -> dict:
+    return next(i for i in items if i["name"] == name)
+
+
+def base_plan_expected_months() -> list[int]:
+    """M1 case 25.1's full 12-month closing-balance table, in minor
+    units, generated by the same trivial accumulation used for the
+    engine fixtures -- not hardcoded by hand, to avoid a transcription
+    slip across 12 numbers this doc repeats throughout §25."""
+    balance = BALANCE_MINOR
+    out = []
+    for _ in range(12):
+        balance += MONTHLY_NET_MINOR
+        out.append(balance)
+    return out

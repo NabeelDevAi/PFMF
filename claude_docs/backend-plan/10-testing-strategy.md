@@ -45,9 +45,11 @@ One fixture sits outside `m1/`, at the top level: `end_date_before_first_occurre
 
 ## 4. M1 case coverage outside the pure-engine fixtures
 
-Section 25 (the shared Base Plan walked through plan creation, field-level overrides, Base-delete cascades, archive/restore, duplicate — cases 25.1–25.17), section 26 (compare, 26.1–26.3), 27.3 (dashboard periods) and 28.1 (currency) all need the resolver/scenario/overlay machinery, not just the pure engine — they're service/API-level integration tests, not golden fixtures, and are a separate, larger piece of work than the fixture reorganization (tracked in `12-open-questions-and-future-hardening.md` §6 item 9).
+Section 25 (the shared Base Plan walked through plan creation, field-level overrides, Base-delete cascades, archive/restore, duplicate — cases 25.1–25.17), section 26 (compare, 26.1–26.3), 27.3 (dashboard periods), 28.1 (currency), and 18.3–18.5 (the balance/anchor cases) all need the resolver/scenario/overlay machinery, not just the pure engine — they're service/API-level integration tests, not golden fixtures, real HTTP against the real test database. Built as `tests/api/test_m1_balance_cases.py` (18.3–18.5), `tests/api/test_m1_plan_cases.py` (25.1–25.17), and `tests/api/test_m1_compare_and_misc_cases.py` (26.1–26.3, 27.3, 28.1), sharing setup helpers in `tests/api/_m1_helpers.py`. Every case rebuilds its own fresh Base Plan from scratch rather than chaining through another case's mutations — see that module's docstring for why that's the faithful reading of how the doc itself scopes each case, not a simplification. Every one of the doc's exact figures passed against the real system on the first run, including case 25.11's 310,400 (not 312,900) — the number that specifically catches a whole-row-snapshot bug in field-level overlay resolution.
 
 The four integrity checks (§29.1–29.4) are already covered: reconciliation and determinism in `tests/engine/test_invariants.py` (hand-picked) and `tests/engine/test_properties.py` (generated); driver completeness in both of those same two files; isolation in `tests/services/test_scenario_resolver.py` (hand-picked and generated). Each test's docstring now cites its check number directly.
+
+All 43 numbered cases and all 4 integrity checks are covered — see `backend-plan/m1-traceability.md` for the full case-to-test mapping, the §9.2 deliverable. Only the client's own cases (§30) remain outstanding.
 
 ## 5. Test database mechanics
 
