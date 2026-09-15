@@ -132,12 +132,30 @@ def test_forecast_falls_back_to_settings_when_no_override(client: TestClient) ->
     assert resp.json()["current_balance_minor"] == 555000
 
 
-def test_forecast_invalid_horizon_is_rejected(client: TestClient) -> None:
+def test_forecast_horizon_outside_range_is_rejected(client: TestClient) -> None:
+    """architecture §11.4: the endpoint accepts any value in
+    [1, max_horizon_months], not just the four client-facing presets --
+    the dashboard needs months_elapsed + 12, which usually isn't one of
+    them. Only genuinely out-of-range values are rejected."""
     headers = _auth_headers(client, email="badhorizon@example.com")
     base_id = _base_id(client, headers)
-    resp = client.get(f"/v1/scenarios/{base_id}/forecast", headers=headers, params={"horizon": 24})
+
+    resp = client.get(f"/v1/scenarios/{base_id}/forecast", headers=headers, params={"horizon": 0})
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "forecast.invalid_horizon"
+
+    resp = client.get(f"/v1/scenarios/{base_id}/forecast", headers=headers, params={"horizon": 121})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "forecast.invalid_horizon"
+
+
+def test_forecast_horizon_not_one_of_the_four_presets_is_accepted(client: TestClient) -> None:
+    headers = _auth_headers(client, email="oddhorizon@example.com")
+    base_id = _base_id(client, headers)
+
+    resp = client.get(f"/v1/scenarios/{base_id}/forecast", headers=headers, params={"horizon": 17})
+    assert resp.status_code == 200
+    assert resp.json()["horizon_months"] == 17
 
 
 def test_forecast_explicit_anchor_is_reproducible(client: TestClient) -> None:
@@ -149,6 +167,43 @@ def test_forecast_explicit_anchor_is_reproducible(client: TestClient) -> None:
     second = client.get(f"/v1/scenarios/{base_id}/forecast", headers=headers, params=params)
     assert first.json() == second.json()
     assert first.json()["anchor_month"] == "2027-03"
+
+
+def test_forecast_anchor_defaults_to_balance_as_of_not_today(client: TestClient) -> None:
+    """architecture §7.1/build spec §11.4: an omitted anchor defaults to
+    the month of balance_as_of, which may be in the past -- never to
+    today's device/server clock."""
+    headers = _auth_headers(client, email="anchordefault@example.com")
+    _set_current_balance(client, headers, 100000)  # sets balance_as_of to 2026-01-01
+    base_id = _base_id(client, headers)
+
+    resp = client.get(f"/v1/scenarios/{base_id}/forecast", headers=headers, params={"horizon": 12})
+    body = resp.json()
+    assert body["anchor_month"] == "2026-01"
+    assert body["balance_as_of"] == "2026-01-01"
+
+
+def test_forecast_current_month_and_months_elapsed(client: TestClient) -> None:
+    """architecture §7.5: current_month/months_elapsed position "today"
+    within the returned rows, so the client never derives either from
+    its own device clock."""
+    headers = _auth_headers(client, email="elapsed@example.com")
+    _set_current_balance(client, headers, 100000)  # balance_as_of = 2026-01-01
+    base_id = _base_id(client, headers)
+
+    resp = client.get(f"/v1/scenarios/{base_id}/forecast", headers=headers, params={"horizon": 12})
+    body = resp.json()
+    assert "current_month" in body
+    assert "months_elapsed" in body
+    # anchor_month -> current_month, in months -- must agree with the two
+    # ISO month strings the response itself carries, not a hardcoded value
+    # (this test doesn't control what "today" is).
+    anchor_year, anchor_month_num = (int(p) for p in body["anchor_month"].split("-"))
+    current_year, current_month_num = (int(p) for p in body["current_month"].split("-"))
+    expected_elapsed = (current_year * 12 + current_month_num) - (
+        anchor_year * 12 + anchor_month_num
+    )
+    assert body["months_elapsed"] == expected_elapsed
 
 
 def test_forecast_not_found_for_another_users_scenario(client: TestClient) -> None:
@@ -177,6 +232,25 @@ def test_compare_same_scenario_is_rejected(client: TestClient) -> None:
     )
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "compare.same_scenario"
+
+
+def test_compare_omitted_anchor_defaults_identically_for_both_sides(client: TestClient) -> None:
+    """D-14: balance_as_of is user-level, not per-scenario, so an omitted
+    anchor must default to the same month on both sides of a compare --
+    never two independent clock reads that could straddle a boundary."""
+    headers = _auth_headers(client, email="cmpanchor@example.com")
+    _set_current_balance(client, headers, 100000)  # balance_as_of = 2026-01-01
+    base_id = _base_id(client, headers)
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Side Income"}).json()
+
+    resp = client.get(
+        "/v1/forecast/compare",
+        headers=headers,
+        params={"a": base_id, "b": plan["id"], "horizon": 12},
+    )
+    body = resp.json()
+    assert body["a"]["anchor_month"] == "2026-01"
+    assert body["b"]["anchor_month"] == "2026-01"
 
 
 def test_compare_base_against_derived_scenario_drivers_and_deltas(client: TestClient) -> None:

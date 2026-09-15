@@ -10,6 +10,7 @@ there is no separate endpoint for any of those.
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
@@ -39,9 +40,12 @@ class TotalsOut(BaseModel):
 class ForecastOut(BaseModel):
     scenario_id: uuid.UUID
     anchor_month: str
+    balance_as_of: date
     horizon_months: int
     currency_code: str
     current_balance_minor: int
+    current_month: str  # where "today" sits in `months` (architecture §7.5)
+    months_elapsed: int  # anchor_month -> current_month, in months
     months: list[MonthRowOut]
     totals: TotalsOut
 
@@ -67,9 +71,12 @@ class ForecastOut(BaseModel):
         return cls(
             scenario_id=result.scenario_id,
             anchor_month=str(ledger.anchor_month),
+            balance_as_of=result.balance_as_of,
             horizon_months=ledger.horizon_months,
             currency_code=result.currency_code,
             current_balance_minor=ledger.current_balance_minor,
+            current_month=str(result.current_month),
+            months_elapsed=result.months_elapsed,
             months=months,
             totals=totals,
         )

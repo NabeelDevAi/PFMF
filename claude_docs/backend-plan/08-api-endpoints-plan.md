@@ -75,7 +75,7 @@ Built as a small addition beyond the architecture doc's locked §9 surface (see 
 | `GET /scenarios/{id}/forecast?horizon=&anchor=` | The one payload that feeds the dashboard, all three forecast chart views, the monthly table, and month breakdown | `forecast.invalid_horizon`, `resource.not_found` |
 | `GET /forecast/compare?a=&b=&horizon=&anchor=` | Two ledgers aligned by month, plus deltas and the drivers list | `compare.same_scenario`, `scenario.archived` (either operand — architecture §6.2), `forecast.invalid_horizon`, `resource.not_found` |
 
-`anchor` is optional on both and, if omitted, is resolved from the current date **in the API layer**, never inside the engine — see `06-services-module.md` (`ForecastService`). Accepting an explicit anchor is what lets a fixed test case or a client bug report be reproduced exactly, at zero extra cost.
+`anchor` is optional on both and, if omitted, defaults to the month of `user_settings.balance_as_of` — never today's clock — resolved in `ForecastService`, never inside the engine (see `06-services-module.md`). `balance_as_of` is user-level (D-14), so an omitted anchor on `/forecast/compare` defaults identically for both operands. Accepting an explicit anchor is what lets a fixed test case or a client bug report be reproduced exactly, at zero extra cost. `horizon` accepts any value in `[1, max_horizon_months]`, not just the four client-facing presets (12/36/60/120) — the dashboard requests `months_elapsed + 12`, which usually isn't one of them.
 
 There is deliberately no `/dashboard` and no `/charts` endpoint anywhere in this plan — every screen that shows a number renders it from one of the two payloads above.
 

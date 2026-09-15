@@ -6,7 +6,6 @@ all render from. No /dashboard, no /charts (architecture §9.1).
 from __future__ import annotations
 
 import uuid
-from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -23,13 +22,14 @@ from app.services.forecast_service import ForecastService
 router = APIRouter(tags=["forecast"])
 
 
-def _resolve_anchor(anchor: str | None) -> YearMonth:
-    """The one place "now" gets read for a forecast -- never inside the
-    engine, and not inside the services either (they take this as a
-    required argument). An explicit ?anchor= reproduces any forecast
-    exactly, for QA or a bug report."""
+def _parse_anchor(anchor: str | None) -> YearMonth | None:
+    """Pure parsing only -- no default, no clock read. A missing anchor
+    is passed through as None; ForecastService is where it gets defaulted
+    to balance_as_of (architecture §7.1/§11.4), since that needs a
+    settings lookup the service already does and this layer shouldn't
+    duplicate."""
     if anchor is None:
-        return YearMonth.from_date(date.today())
+        return None
     try:
         return YearMonth.parse(anchor)
     except ValueError:
@@ -45,7 +45,7 @@ def get_forecast(
     db: Session = Depends(get_db),
 ) -> ForecastOut:
     result = ForecastService(db).forecast(
-        user.id, scenario_id, horizon_months=horizon, anchor_month=_resolve_anchor(anchor)
+        user.id, scenario_id, horizon_months=horizon, anchor_month=_parse_anchor(anchor)
     )
     return ForecastOut.from_result(result)
 
@@ -60,6 +60,6 @@ def compare_forecasts(
     db: Session = Depends(get_db),
 ) -> CompareOut:
     result = CompareService(db).compare(
-        user.id, a, b, horizon_months=horizon, anchor_month=_resolve_anchor(anchor)
+        user.id, a, b, horizon_months=horizon, anchor_month=_parse_anchor(anchor)
     )
     return CompareOut.from_result(result)

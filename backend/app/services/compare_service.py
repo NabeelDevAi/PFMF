@@ -38,15 +38,18 @@ class CompareService:
         scenario_b_id: uuid.UUID,
         *,
         horizon_months: int,
-        anchor_month: YearMonth,
+        anchor_month: YearMonth | None = None,
     ) -> CompareResult:
         if scenario_a_id == scenario_b_id:
             raise APIError("compare.same_scenario")
         self._check_not_archived(user_id, scenario_a_id)
         self._check_not_archived(user_id, scenario_b_id)
 
-        # Same explicit anchor_month passed into both -- never let either
-        # call independently default to "now", or a request straddling a
+        # Same anchor_month passed into both -- if omitted, each call
+        # defaults independently, but the default (balance_as_of) is
+        # user-level, not per-scenario (D-14), so both sides land on the
+        # identical month regardless. Never let either side default from
+        # a clock read at two different instants: a request straddling a
         # month boundary could hand the engine two ledgers it isn't
         # allowed to compare (it asserts on this itself).
         a = self.forecasts.forecast(
