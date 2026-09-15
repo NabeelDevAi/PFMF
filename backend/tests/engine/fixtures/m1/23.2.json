@@ -1,0 +1,439 @@
+{
+  "name": "M1 case 23.2 -- yearly item dated 29 February",
+  "current_balance_minor": 10000000,
+  "anchor_month": "2028-02",
+  "horizon_months": 60,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Annual premium",
+      "amount_minor": 500000,
+      "direction": "expense",
+      "recurrence": "annual",
+      "start_date": "2028-02-29",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2028-02",
+      "income_minor": 0,
+      "expense_minor": 500000,
+      "net_minor": -500000,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2028-03",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2028-04",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2028-05",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2028-06",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2028-07",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2028-08",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2028-09",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2028-10",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2028-11",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2028-12",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2029-01",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2029-02",
+      "income_minor": 0,
+      "expense_minor": 500000,
+      "net_minor": -500000,
+      "closing_balance_minor": 9000000
+    },
+    {
+      "month": "2029-03",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9000000
+    },
+    {
+      "month": "2029-04",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9000000
+    },
+    {
+      "month": "2029-05",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9000000
+    },
+    {
+      "month": "2029-06",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9000000
+    },
+    {
+      "month": "2029-07",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9000000
+    },
+    {
+      "month": "2029-08",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9000000
+    },
+    {
+      "month": "2029-09",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9000000
+    },
+    {
+      "month": "2029-10",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9000000
+    },
+    {
+      "month": "2029-11",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9000000
+    },
+    {
+      "month": "2029-12",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9000000
+    },
+    {
+      "month": "2030-01",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 9000000
+    },
+    {
+      "month": "2030-02",
+      "income_minor": 0,
+      "expense_minor": 500000,
+      "net_minor": -500000,
+      "closing_balance_minor": 8500000
+    },
+    {
+      "month": "2030-03",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8500000
+    },
+    {
+      "month": "2030-04",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8500000
+    },
+    {
+      "month": "2030-05",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8500000
+    },
+    {
+      "month": "2030-06",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8500000
+    },
+    {
+      "month": "2030-07",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8500000
+    },
+    {
+      "month": "2030-08",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8500000
+    },
+    {
+      "month": "2030-09",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8500000
+    },
+    {
+      "month": "2030-10",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8500000
+    },
+    {
+      "month": "2030-11",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8500000
+    },
+    {
+      "month": "2030-12",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8500000
+    },
+    {
+      "month": "2031-01",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8500000
+    },
+    {
+      "month": "2031-02",
+      "income_minor": 0,
+      "expense_minor": 500000,
+      "net_minor": -500000,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2031-03",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2031-04",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2031-05",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2031-06",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2031-07",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2031-08",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2031-09",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2031-10",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2031-11",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2031-12",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2032-01",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2032-02",
+      "income_minor": 0,
+      "expense_minor": 500000,
+      "net_minor": -500000,
+      "closing_balance_minor": 7500000
+    },
+    {
+      "month": "2032-03",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 7500000
+    },
+    {
+      "month": "2032-04",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 7500000
+    },
+    {
+      "month": "2032-05",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 7500000
+    },
+    {
+      "month": "2032-06",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 7500000
+    },
+    {
+      "month": "2032-07",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 7500000
+    },
+    {
+      "month": "2032-08",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 7500000
+    },
+    {
+      "month": "2032-09",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 7500000
+    },
+    {
+      "month": "2032-10",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 7500000
+    },
+    {
+      "month": "2032-11",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 7500000
+    },
+    {
+      "month": "2032-12",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 7500000
+    },
+    {
+      "month": "2033-01",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 7500000
+    }
+  ]
+}

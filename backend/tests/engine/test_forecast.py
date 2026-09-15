@@ -49,6 +49,28 @@ def test_golden_fixture(fixture_path: Path) -> None:
         assert row.closing_balance_minor == expected["closing_balance_minor"], case["name"]
 
 
+def test_m1_case_27_2_horizon_choice_does_not_change_shared_months() -> None:
+    """M1 case 27.2: any month appearing in more than one horizon must
+    show identical figures in each -- run the shared Base Plan of
+    fixtures/m1/27.1.json at all four client-facing horizons and compare
+    December 2026 (month index 11) across every one."""
+    case = json.loads((FIXTURES_DIR / "m1" / "27.1.json").read_text())
+    transactions = [txn_from_dict(t) for t in case["transactions"]]
+
+    december_2026_rows = []
+    for horizon in (12, 36, 60, 120):
+        ledger = forecast(
+            current_balance_minor=case["current_balance_minor"],
+            anchor_month=YearMonth.parse(case["anchor_month"]),
+            horizon_months=horizon,
+            transactions=transactions,
+        )
+        december_2026_rows.append(ledger.months[11])
+
+    assert all(row == december_2026_rows[0] for row in december_2026_rows)
+    assert str(december_2026_rows[0].month) == "2026-12"
+
+
 def test_weekly_over_120_months_is_fast_and_reconciles() -> None:
     """Named edge case from architecture §12.2: 120-month horizon, weekly
     recurrence -> ~520 occurrences from this one transaction alone. Not a

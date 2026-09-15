@@ -1,0 +1,111 @@
+{
+  "name": "M1 case 23.3 -- monthly item starting 29 February (balance unspecified; 0 assumed)",
+  "current_balance_minor": 0,
+  "anchor_month": "2028-02",
+  "horizon_months": 13,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Subscription",
+      "amount_minor": 10000,
+      "direction": "expense",
+      "recurrence": "monthly",
+      "start_date": "2028-02-29",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2028-02",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -10000
+    },
+    {
+      "month": "2028-03",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -20000
+    },
+    {
+      "month": "2028-04",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -30000
+    },
+    {
+      "month": "2028-05",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -40000
+    },
+    {
+      "month": "2028-06",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -50000
+    },
+    {
+      "month": "2028-07",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -60000
+    },
+    {
+      "month": "2028-08",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -70000
+    },
+    {
+      "month": "2028-09",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -80000
+    },
+    {
+      "month": "2028-10",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -90000
+    },
+    {
+      "month": "2028-11",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -100000
+    },
+    {
+      "month": "2028-12",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -110000
+    },
+    {
+      "month": "2029-01",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -120000
+    },
+    {
+      "month": "2029-02",
+      "income_minor": 0,
+      "expense_minor": 10000,
+      "net_minor": -10000,
+      "closing_balance_minor": -130000
+    }
+  ],
+  "_note": "Current Cash Balance not given in the doc for this case; 0 assumed."
+}

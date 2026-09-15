@@ -186,7 +186,8 @@ def test_isolation_arbitrary_overlays_on_one_scenario_never_affect_another(
 ) -> None:
     """Architecture §9.2 / backend-plan §10's isolation invariant, proven
     against the real database: scenario A's resolved view (and Base's own)
-    must be identical before and after B is overlaid every possible way."""
+    must be identical before and after B is overlaid every possible way.
+    M1 check 29.3."""
     user, base, _derived, rent, salary = _setup(db_session)
     scenarios = ScenarioRepository(db_session)
     scenario_a = scenarios.create(user_id=user.id, name="Scenario A")
@@ -270,7 +271,7 @@ def test_isolation_property(
     overlays applied to scenario B must never change scenario A's
     resolved view, or Base's own -- against the real database, with
     randomized Base transactions and randomized overlays targeting a
-    randomized subset of them."""
+    randomized subset of them. M1 check 29.3."""
     users = UserRepository(db_session)
     scenarios = ScenarioRepository(db_session)
     transactions = TransactionRepository(db_session)

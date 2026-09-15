@@ -35,11 +35,19 @@ This split is the direct consequence of the "lean now, harden later" decision �
 
 ## 3. Golden fixtures
 
-Each engine test case is a JSON file: an input transaction set, an anchor month, a horizon, and the expected month-by-month ledger. A parametrized test discovers every file in the fixtures directory automatically. This format is chosen specifically so the client's own "independently verified test cases" (referenced in the RFP and both prior docs) can be dropped in as files, with zero code changes, whenever they're obtained — there's a placeholder subdirectory reserved for them now, tracked as an open item in `12-open-questions-and-future-hardening.md` until they arrive.
+Each engine test case is a JSON file: an input transaction set, an anchor month, a horizon, and the expected month-by-month ledger. A parametrized test discovers every file under the fixtures directory automatically, recursively (`tests/engine/fixtures/**/*.json`) — adding a case is adding a file, no code change.
 
-## 4. Named edge cases (carried forward from the architecture/backend-spec docs)
+**`tests/engine/fixtures/m1/`** holds every pure-engine case from the signed M1 document's Part 2 (§18–§24, §27.1), named by case number (`22.1.json`, `24.1.json`, ...) so the mapping from file to agreed case is direct, not inferred. Generated once from the doc's own stated occurrence dates and amounts — not by calling the engine and recording its output, which would prove only self-consistency — then run against the real engine as a genuine independent check; all 23 pass byte-for-byte against the doc's figures. A case with two horizon variants (19.3, at 12 and 36 months) gets two files (`19.3_horizon12.json`, `19.3_horizon36.json`). Case 27.2 (horizon choice doesn't change a shared month's figures) isn't a fixed input/output pair, so it's a dedicated test (`tests/engine/test_forecast.py::test_m1_case_27_2_...`) reusing the 27.1 fixture's Base Plan at all four horizons instead.
 
-Monthly recurrence clamping to month-end across a non-leap year · annual recurrence on Feb 29 landing on Feb 28 in non-leap years · weekly recurrence across a five-payday month · an end date before the first possible occurrence yielding zero occurrences · an end date exactly on an occurrence date being inclusive · a one-time transaction before the window · a one-time transaction after the window · a transaction starting before the anchor month contributing only from the anchor forward · an empty scenario producing a flat ledger at the Current Cash Balance · a 120-month horizon with weekly recurrence (performance and correctness together) · an overlay's `unset_end_date` turning a previously-ending transaction open-ended.
+**`tests/engine/fixtures/client/`** is the still-empty placeholder for the client's own "independently verified test cases" (RFP, referenced in both prior docs) — dropped in as files, zero code change, whenever obtained (tracked as an open item in `12-open-questions-and-future-hardening.md`).
+
+One fixture sits outside `m1/`, at the top level: `end_date_before_first_occurrence_yields_nothing.json` — a genuine architecture §12.2 edge case that isn't one of the 43 numbered M1 cases (M1's own end-date cases, 21.1–21.3, are about a date landing on or before an occurrence, not before the very first one).
+
+## 4. M1 case coverage outside the pure-engine fixtures
+
+Section 25 (the shared Base Plan walked through plan creation, field-level overrides, Base-delete cascades, archive/restore, duplicate — cases 25.1–25.17), section 26 (compare, 26.1–26.3), 27.3 (dashboard periods) and 28.1 (currency) all need the resolver/scenario/overlay machinery, not just the pure engine — they're service/API-level integration tests, not golden fixtures, and are a separate, larger piece of work than the fixture reorganization (tracked in `12-open-questions-and-future-hardening.md` §6 item 9).
+
+The four integrity checks (§29.1–29.4) are already covered: reconciliation and determinism in `tests/engine/test_invariants.py` (hand-picked) and `tests/engine/test_properties.py` (generated); driver completeness in both of those same two files; isolation in `tests/services/test_scenario_resolver.py` (hand-picked and generated). Each test's docstring now cites its check number directly.
 
 ## 5. Test database mechanics
 

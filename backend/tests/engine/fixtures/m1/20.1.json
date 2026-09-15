@@ -1,0 +1,40 @@
+{
+  "name": "M1 case 20.1 -- monthly income, no end date",
+  "current_balance_minor": 4500000,
+  "anchor_month": "2026-01",
+  "horizon_months": 3,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Salary",
+      "amount_minor": 2500000,
+      "direction": "income",
+      "recurrence": "monthly",
+      "start_date": "2026-01-25",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2026-01",
+      "income_minor": 2500000,
+      "expense_minor": 0,
+      "net_minor": 2500000,
+      "closing_balance_minor": 7000000
+    },
+    {
+      "month": "2026-02",
+      "income_minor": 2500000,
+      "expense_minor": 0,
+      "net_minor": 2500000,
+      "closing_balance_minor": 9500000
+    },
+    {
+      "month": "2026-03",
+      "income_minor": 2500000,
+      "expense_minor": 0,
+      "net_minor": 2500000,
+      "closing_balance_minor": 12000000
+    }
+  ]
+}

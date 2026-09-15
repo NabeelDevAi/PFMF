@@ -29,7 +29,7 @@ ANCHOR = YearMonth(2026, 1)
 def test_reconciliation_property(txns, balance, horizon) -> None:
     """Final balance equals the Current Cash Balance plus the signed sum
     of every occurrence that actually landed in the window -- RFP §10's
-    core criterion, mechanised."""
+    core criterion, mechanised. M1 check 29.1."""
     ledger = forecast(
         current_balance_minor=balance,
         anchor_month=ANCHOR,
@@ -43,7 +43,7 @@ def test_reconciliation_property(txns, balance, horizon) -> None:
 @given(txns=transaction_sets(), balance=CURRENT_BALANCES, horizon=HORIZONS)
 @settings(max_examples=200, deadline=None)
 def test_determinism_property(txns, balance, horizon) -> None:
-    """Same inputs, run twice, byte-identical output."""
+    """Same inputs, run twice, byte-identical output. M1 check 29.2."""
     first = forecast(
         current_balance_minor=balance,
         anchor_month=ANCHOR,
@@ -68,9 +68,9 @@ def test_determinism_property(txns, balance, horizon) -> None:
 @settings(max_examples=200, deadline=None)
 def test_driver_completeness_property(txns_a, txns_b, balance, horizon) -> None:
     """Driver contributions sum exactly to the closing-balance delta.
-    txns_a and txns_b are generated independently but both assign ids
-    sequentially from t0 -- overlapping ids land as "modified" (same
-    source, different value), ids present in only one side land as
+    M1 check 29.4. txns_a and txns_b are generated independently but both
+    assign ids sequentially from t0 -- overlapping ids land as "modified"
+    (same source, different value), ids present in only one side land as
     added/removed. That's exactly the semantics compare() assumes, so
     this organically fuzzes all three change types without needing to
     orchestrate it explicitly."""

@@ -1,0 +1,30 @@
+{
+  "name": "M1 case 18.1 -- no items entered",
+  "current_balance_minor": 4500000,
+  "anchor_month": "2026-01",
+  "horizon_months": 3,
+  "transactions": [],
+  "expected_months": [
+    {
+      "month": "2026-01",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 4500000
+    },
+    {
+      "month": "2026-02",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 4500000
+    },
+    {
+      "month": "2026-03",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 4500000
+    }
+  ]
+}

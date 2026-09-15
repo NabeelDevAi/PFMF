@@ -1,0 +1,122 @@
+{
+  "name": "M1 case 24.3 -- quarterly, half-yearly and yearly items from the same date (balance unspecified; 0 assumed)",
+  "current_balance_minor": 0,
+  "anchor_month": "2026-01",
+  "horizon_months": 12,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Quarterly fee",
+      "amount_minor": 150000,
+      "direction": "expense",
+      "recurrence": "quarterly",
+      "start_date": "2026-02-15",
+      "end_date": null
+    },
+    {
+      "id": "t2",
+      "name": "Half-yearly fee",
+      "amount_minor": 150000,
+      "direction": "expense",
+      "recurrence": "semiannual",
+      "start_date": "2026-02-15",
+      "end_date": null
+    },
+    {
+      "id": "t3",
+      "name": "Yearly fee",
+      "amount_minor": 150000,
+      "direction": "expense",
+      "recurrence": "annual",
+      "start_date": "2026-02-15",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2026-01",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 0
+    },
+    {
+      "month": "2026-02",
+      "income_minor": 0,
+      "expense_minor": 450000,
+      "net_minor": -450000,
+      "closing_balance_minor": -450000
+    },
+    {
+      "month": "2026-03",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": -450000
+    },
+    {
+      "month": "2026-04",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": -450000
+    },
+    {
+      "month": "2026-05",
+      "income_minor": 0,
+      "expense_minor": 150000,
+      "net_minor": -150000,
+      "closing_balance_minor": -600000
+    },
+    {
+      "month": "2026-06",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": -600000
+    },
+    {
+      "month": "2026-07",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": -600000
+    },
+    {
+      "month": "2026-08",
+      "income_minor": 0,
+      "expense_minor": 300000,
+      "net_minor": -300000,
+      "closing_balance_minor": -900000
+    },
+    {
+      "month": "2026-09",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": -900000
+    },
+    {
+      "month": "2026-10",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": -900000
+    },
+    {
+      "month": "2026-11",
+      "income_minor": 0,
+      "expense_minor": 150000,
+      "net_minor": -150000,
+      "closing_balance_minor": -1050000
+    },
+    {
+      "month": "2026-12",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": -1050000
+    }
+  ],
+  "_note": "Current Cash Balance not given in the doc for this case; 0 assumed."
+}

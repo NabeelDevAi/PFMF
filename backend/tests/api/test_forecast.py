@@ -21,9 +21,9 @@ from fastapi.testclient import TestClient
 
 FIXTURES_DIR = Path(__file__).parent.parent / "engine" / "fixtures"
 GOLDEN_CASES = [
-    "monthly_clamps_to_month_end.json",
-    "weekly_across_five_payday_month.json",
-    "empty_scenario_produces_flat_ledger.json",
+    "m1/22.1.json",
+    "m1/24.1.json",
+    "m1/18.1.json",
 ]
 
 
@@ -50,7 +50,8 @@ def test_forecast_over_http_matches_engine_golden_fixture(
     client: TestClient, fixture_name: str
 ) -> None:
     case = json.loads((FIXTURES_DIR / fixture_name).read_text())
-    headers = _auth_headers(client, email=f"golden-{fixture_name}@example.com")
+    safe_name = fixture_name.replace("/", "-")
+    headers = _auth_headers(client, email=f"golden-{safe_name}@example.com")
     base_id = _base_id(client, headers)
     _set_current_balance(client, headers, case["current_balance_minor"])
 

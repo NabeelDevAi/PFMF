@@ -1,0 +1,47 @@
+{
+  "name": "M1 case 21.1 -- end date falling on an occurrence date",
+  "current_balance_minor": 1000000,
+  "anchor_month": "2026-01",
+  "horizon_months": 4,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Car loan",
+      "amount_minor": 200000,
+      "direction": "expense",
+      "recurrence": "monthly",
+      "start_date": "2026-01-10",
+      "end_date": "2026-03-10"
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2026-01",
+      "income_minor": 0,
+      "expense_minor": 200000,
+      "net_minor": -200000,
+      "closing_balance_minor": 800000
+    },
+    {
+      "month": "2026-02",
+      "income_minor": 0,
+      "expense_minor": 200000,
+      "net_minor": -200000,
+      "closing_balance_minor": 600000
+    },
+    {
+      "month": "2026-03",
+      "income_minor": 0,
+      "expense_minor": 200000,
+      "net_minor": -200000,
+      "closing_balance_minor": 400000
+    },
+    {
+      "month": "2026-04",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 400000
+    }
+  ]
+}

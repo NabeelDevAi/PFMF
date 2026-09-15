@@ -4,9 +4,16 @@ These exercise the same invariants -- reconciliation, determinism, and driver
 completeness -- on a curated set of deliberately varied cases, so the
 acceptance-critical guarantees are never left unverified in the meantime.
 
-Isolation (arbitrary overlays on scenario B never affecting scenario A) is
-NOT tested here -- the engine has no concept of scenarios or overlays at
-all. That invariant belongs to the scenario resolver, built in milestone M4.
+Maps to M1's four integrity checks (§29): reconciliation = check 29.1,
+determinism = check 29.2, driver completeness = check 29.4. (Both are also
+exercised as genuine generated Hypothesis properties in test_properties.py
+and, for the resolver, tests/services/test_scenario_resolver.py -- these
+are the permanent hand-picked layer alongside that, not a replacement.)
+
+Isolation (check 29.3: arbitrary overlays on scenario B never affecting
+scenario A) is NOT tested here -- the engine has no concept of scenarios or
+overlays at all. That invariant belongs to the scenario resolver, built in
+milestone M4 (tests/services/test_scenario_resolver.py).
 """
 
 from __future__ import annotations
@@ -94,6 +101,7 @@ RECONCILIATION_CASES: list[dict] = [
 
 
 def test_reconciliation_holds_across_varied_cases() -> None:
+    """M1 check 29.1."""
     for case in RECONCILIATION_CASES:
         ledger = forecast(**case)
         expected = case["current_balance_minor"] + sum(o.signed_minor for o in ledger.occurrences)
@@ -101,6 +109,7 @@ def test_reconciliation_holds_across_varied_cases() -> None:
 
 
 def test_determinism_same_inputs_identical_output() -> None:
+    """M1 check 29.2."""
     for case in RECONCILIATION_CASES:
         first = forecast(**case)
         second = forecast(**case)
@@ -108,6 +117,7 @@ def test_determinism_same_inputs_identical_output() -> None:
 
 
 def test_driver_completeness_across_a_larger_diff() -> None:
+    """M1 check 29.4."""
     a_txns = RECONCILIATION_CASES[2]["transactions"]
     b_txns = [
         txn("t1", "Salary", 1100000, "income", "monthly", "2018-01-31"),  # modified
