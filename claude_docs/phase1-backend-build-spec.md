@@ -1,6 +1,9 @@
 # Phase 1 — Backend Build Specification
 
-**Status:** Draft v1.0 — internal engineering document
+**Status:** v1.1 — aligned to signed M1
+**Authority:** `Milestone 1 — Discovery & Specification v1.1` Part 2 (rules R1–R35, cases 18.1–29.4). Where this document and M1 disagree, M1 wins.
+
+**Changes in v1.1:** engine signature takes `current_balance_minor` (D-04) · duplicate, archive and dependents service logic (§10.2–§10.4) · new error codes (§11.2) · forecast anchor comes from `balance_as_of`, plus `current_month` / `months_elapsed` in the response (§11.4) · fixture format and named cases updated to the M1 register (§13) · build order revised (§15).
 **Owner:** Nabeel Sohail (Technical Lead / Architect)
 **Depends on:** `phase1-system-architecture.md` (schema §5, resolution §6, engine §7, compare §8, API §9)
 **Audience:** Backend engineers. Sections §11 and §16 are also the Flutter developer's contract.
@@ -276,7 +279,7 @@ class MonthRow:
 class Ledger:
     anchor_month: YearMonth
     horizon_months: int
-    opening_balance_minor: Minor
+    current_balance_minor: Minor      # user-confirmed (D-04), never system-mutated
     months: tuple[MonthRow, ...]
     occurrences: tuple[Occurrence, ...]   # retained for breakdown + drivers
 ```
@@ -402,8 +405,8 @@ from .types import Direction, Minor, YearMonth
 
 def forecast(
     *,
-    opening_balance_minor: Minor,
-    anchor_month: YearMonth,
+    current_balance_minor: Minor,     # from user_settings; never mutated by the system
+    anchor_month: YearMonth,          # from user_settings.balance_as_of
     horizon_months: int,
     transactions: list[ResolvedTransaction],
     assumptions: Assumptions = Assumptions.none(),
@@ -436,7 +439,7 @@ def forecast(
 
     # 4. ACCUMULATE
     rows: list[MonthRow] = []
-    balance = opening_balance_minor
+    balance = current_balance_minor
     for i in range(horizon_months):
         ym = anchor_month.add(i)
         income, expense = buckets.get(ym, (0, 0))
@@ -447,7 +450,7 @@ def forecast(
     return Ledger(
         anchor_month=anchor_month,
         horizon_months=horizon_months,
-        opening_balance_minor=opening_balance_minor,
+        current_balance_minor=current_balance_minor,
         months=tuple(rows),
         occurrences=tuple(occurrences),
     )
@@ -510,6 +513,7 @@ DDL is in architecture §5 and is authoritative. Implementation notes:
 - **Date columns are `DATE`.** `TIMESTAMPTZ` appears only on audit fields (`created_at`, `updated_at`), never on anything the engine reads.
 - **Deleting a Base transaction cascades** its overlays via `ON DELETE CASCADE` — the row is gone, so overrides and exclusions of it are meaningless.
 - **Base plan protection** lives in the service layer: `is_base` scenarios cannot be deleted, archived, or created a second time (the partial unique index backs this up at the DB level).
+- **`current_balance_minor` and `balance_as_of` are written by exactly one service method**, called from exactly one endpoint (`PUT /v1/me/balance`). No other code path touches them — not transaction writes, not scenario writes, not a scheduled job. There are no scheduled jobs. D-04 is a hard constraint from a signed rule (M1 R1), and §13.3 asserts it as a property test rather than trusting review to catch a violation.
 
 ### 10.1 Scenario resolution
 
@@ -545,6 +549,46 @@ async def resolve(self, scenario: Scenario) -> list[ResolvedTransaction]:
 ```
 
 `apply_patch` takes each `ovr_*` field when non-NULL, otherwise the Base value, and honours `unset_end_date` to force `end_date = None`.
+
+**Field-level resolution is contractual (M1 R19).** The override is a sparse patch, resolved against live Base values at read time. Never widen this into a whole-row copy, a JSONB snapshot, or an "eager materialise on write" optimisation: M1 case 25.11 pins the numbers at 310,400, and a snapshot produces 312,900. That difference is a defect inside Phase 1 scope.
+
+### 10.2 Duplicate
+
+```python
+async def duplicate(self, source: Scenario) -> Scenario:
+    target = await self.scenario_repo.create(
+        user_id=source.user_id,
+        name=await self._unique_name(source.user_id, f"{source.name} (copy)"),
+        is_base=False,
+        current_balance_override_minor=source.current_balance_override_minor,
+    )
+    if not source.is_base:
+        await self.overlay_repo.copy_all(from_=source.id, to=target.id)   # new ids
+        await self.txn_repo.copy_all(from_=source.id, to=target.id)       # new ids
+    # Base source: copy nothing. Inheritance alone reproduces it (M1 25.16).
+    return target
+```
+
+Two traps, both with named tests. Copying rows when the source **is** Base doubles every item. Copying the **resolved** set instead of the overlay set severs inheritance, so M1 case 25.15 step 3 fails — the duplicate stops tracking a Base salary change.
+
+Rejected sources: archived scenarios (restore first). The duplicate is a sibling, never a child — no parent column exists, deliberately.
+
+### 10.3 Archive
+
+`archived_at = now()` / `NULL`. Service rules: Base cannot be archived; archived scenarios are excluded from the default list, rejected as a comparison operand, rejected as a duplicate source, and excluded from any scenario cap. Nothing else changes, so overlays keep resolving against live Base rows and a restore picks up every intervening Base change (M1 R23, case 25.17).
+
+### 10.4 Base transaction deletion and dependents
+
+`ON DELETE CASCADE` removes overlays targeting a deleted Base transaction (M1 R20, cases 25.12–25.14).
+
+`GET /v1/transactions/{id}/dependents` returns the count and names of scenarios holding an overlay on that row, so the client can warn before deleting:
+
+```python
+async def dependents(self, txn_id: UUID, user_id: UUID) -> list[ScenarioRef]:
+    return await self.overlay_repo.scenarios_referencing(txn_id, user_id)
+```
+
+One indexed query on `scenario_overlays.base_transaction_id`. Deletion is never blocked — it is the user's own financial picture — but it must not be silent.
 
 ---
 
@@ -582,6 +626,11 @@ This table is part of the Flutter developer's contract. Every code needs an `ar`
 | `transaction.one_time_has_end_date` | 422 | One-time with an end date |
 | `transaction.direction_immutable` | 422 | Attempt to change income ↔ expense |
 | `transaction.limit_reached` | 422 | Per-scenario cap |
+| `balance.as_of_in_future` | 422 | As-of date later than today |
+| `balance.as_of_too_old` | 422 | As-of date beyond the supported backstop |
+| `scenario.archived` | 409 | Archived scenario used as active, compare operand or duplicate source |
+| `scenario.not_archived` | 409 | Unarchive on a scenario that is not archived |
+| `scenario.base_not_duplicable_with_rows` | 500 | Internal guard: Base duplicate attempted to copy rows (M1 25.16) |
 | `scenario.base_immutable` | 409 | Delete/archive of Base |
 | `scenario.name_taken` | 409 | Duplicate name for this user |
 | `scenario.limit_reached` | 422 | Plan cap |
@@ -609,9 +658,27 @@ This table is part of the Flutter developer's contract. Every code needs an `ar`
 GET /v1/scenarios/{id}/forecast?horizon=60&anchor=2026-09
 ```
 
-`horizon` ∈ {12, 36, 60, 120}. `anchor` is optional and defaults to the current month **resolved in the API layer, not the engine** — the engine never reads a clock. Accepting an explicit anchor is what lets QA and the client reproduce any forecast exactly, and it costs nothing.
+`horizon` is measured in months **from the anchor**. `anchor` is optional and defaults to the month of `user_settings.balance_as_of` — resolved in the API layer, never in the engine, which reads no clock. Accepting an explicit anchor is what lets QA and the client reproduce any forecast exactly, and it costs nothing.
 
-This one endpoint feeds the Dashboard, all three Forecast chart views, the monthly table and the month breakdown (screen spec §5.1, §7). There is no separate dashboard or chart endpoint, by design.
+**The anchor is the as-of month, which may be in the past.** If a user confirmed their balance five months ago, the ledger starts five months ago and a 12-month horizon only reaches seven months past today. The response therefore carries two fields the client needs and must not compute itself from a device clock:
+
+```jsonc
+{
+  "anchor_month": "2026-01",
+  "balance_as_of": "2026-01-01",
+  "current_balance_minor": 4500000,
+  "current_month": "2026-06",     // where today sits in `months`
+  "months_elapsed": 5,            // anchor -> current, in months
+  "horizon_months": 17,
+  // ...
+}
+```
+
+A dashboard wanting twelve months ahead of today requests `months_elapsed + 12`. `months_elapsed` also drives the stale-balance prompt threshold.
+
+Validation: `horizon` between 1 and `max_horizon_months`; the four client-facing values are 12, 36, 60 and 120, but the endpoint accepts any value in range because the dashboard needs `months_elapsed + 12`. Rejecting anything outside the four would break the dashboard the moment a balance goes stale.
+
+This one endpoint feeds the Dashboard, all three Forecast chart views, the monthly table and the month breakdown (screen spec §5.1, §7). There is no separate dashboard or chart endpoint, by design. Dashboard period totals are a client-side sum of the monthly rows in this payload — the only arithmetic the client performs, permitted because summing the server's own integers cannot disagree with the server.
 
 ---
 
@@ -636,7 +703,7 @@ Every engine case is a JSON file, so cases can be written by anyone — includin
 // tests/engine/fixtures/monthly_clamps_to_month_end.json
 {
   "name": "Monthly starting Jan 31 clamps in short months",
-  "opening_balance_minor": 0,
+  "current_balance_minor": 0,
   "anchor_month": "2026-01",
   "horizon_months": 5,
   "transactions": [
@@ -655,31 +722,39 @@ Every engine case is a JSON file, so cases can be written by anyone — includin
 
 Loaded by a parametrised test that discovers every file in the directory. Adding a case is adding a file — no code.
 
-**Action for discovery:** RFP §10 requires comparison results to match the client's *independently verified test cases*. We ask for them in the workshop, convert them into this format, and commit them under `fixtures/client/`. Final acceptance then becomes a green CI run instead of a meeting.
+**The M1 register is the fixture directory.** Every case in M1 Part 2 (18.1 through 29.4) exists as a file under `fixtures/m1/`, named by its case number, with the case reference and the rules it verifies in metadata. M1 §33 makes any disagreement between the software and an agreed case a defect inside Phase 1 scope, so these are not documentation we consult — they are tests that gate every merge. The traceability table promised in M1 §9.2 is generated from that metadata, so it cannot drift from what actually runs.
+
+**Still outstanding from the client:** their own independently verified cases, to be committed under `fixtures/client/` in the same format (M1 §30). Final acceptance is then a green CI run rather than a meeting.
 
 ### 13.2 Named edge cases
 
 Each of these is its own test with a descriptive name. From architecture §12.2:
 
-`monthly_clamps_to_month_end` · `annual_on_feb_29_in_non_leap_year` · `weekly_across_five_payday_month` · `end_date_before_first_occurrence_yields_nothing` · `end_date_on_occurrence_date_is_inclusive` · `one_time_before_window_excluded` · `one_time_after_window_excluded` · `transaction_starting_before_anchor_contributes_from_anchor` · `empty_scenario_produces_flat_ledger` · `weekly_over_120_months_performance` · `unset_end_date_overlay_makes_open_ended`
+`monthly_clamps_to_month_end` (M1 22.1) · `annual_on_feb_29_in_non_leap_year` (23.2) · `monthly_on_31st_through_leap_february` (23.1) · `weekly_across_five_payday_month` (24.1) · `end_date_before_first_occurrence_yields_nothing` · `end_date_on_occurrence_date_is_inclusive` (21.1) · `end_date_one_day_before_occurrence_excludes_it` (21.2) · `one_time_before_window_excluded` (19.2) · `one_time_after_window_excluded` (19.3) · `transaction_starting_before_anchor_contributes_from_anchor` (20.3) · `empty_scenario_produces_flat_ledger` (18.1) · `weekly_over_120_months_performance` · `unset_end_date_overlay_makes_open_ended`
+
+Added in v1.1, from the agreed M1 cases:
+
+`scheduled_occurrence_does_not_change_current_balance` (18.3) · `balance_update_reanchors_ledger` (18.4) · `stale_anchor_reports_months_elapsed` (18.5) · `override_of_one_field_follows_base_on_others` (**25.11 — the most important new case**) · `base_delete_cascades_to_overriding_scenario` (25.13) · `base_delete_cascades_to_excluding_scenario` (25.14) · `duplicate_keeps_live_base_inheritance` (25.15) · `duplicate_is_independent_of_source` (25.15 step 4) · `duplicate_of_base_yields_each_item_once` (25.16) · `archive_restore_reflects_current_base` (25.17) · `dashboard_period_windows_agree_with_forecast` (27.3) · `currency_change_alters_no_amount` (28.1)
 
 ### 13.3 Property tests (Hypothesis)
 
 ```python
-@given(txns=transaction_sets(), opening=st.integers(-10**9, 10**9))
-def test_ledger_reconciles(txns, opening):
-    ledger = forecast(opening_balance_minor=opening, anchor_month=YearMonth(2026, 1),
+@given(txns=transaction_sets(), balance=st.integers(-10**9, 10**9))
+def test_ledger_reconciles(txns, balance):
+    ledger = forecast(current_balance_minor=balance, anchor_month=YearMonth(2026, 1),
                       horizon_months=60, transactions=txns)
     assert ledger.months[-1].closing_balance_minor == \
-        opening + sum(o.signed_minor for o in ledger.occurrences)
+        balance + sum(o.signed_minor for o in ledger.occurrences)
 ```
 
-Four invariants:
+Six invariants:
 
-1. **Reconciliation** — final balance equals opening plus the signed sum of all occurrences. This is RFP §10's core criterion, mechanised.
-2. **Isolation** — arbitrary overlays on scenario B never change scenario A's ledger.
-3. **Determinism** — identical inputs produce identical output across runs.
-4. **Driver completeness** — driver contributions sum exactly to the closing-balance delta.
+1. **Reconciliation** — final balance equals the Current Cash Balance plus the signed sum of all occurrences. RFP §10's core criterion, mechanised (M1 check 29.1).
+2. **Isolation** — arbitrary overlays on scenario B never change scenario A's ledger (M1 check 29.3).
+3. **Determinism** — identical inputs produce identical output across runs (M1 check 29.2).
+4. **Driver completeness** — driver contributions sum exactly to the closing-balance delta (M1 check 29.4).
+5. **Balance immutability** (new in v1.1) — drive arbitrary sequences of transaction, overlay, scenario and settings writes against a real database and assert that `current_balance_minor` and `balance_as_of` are untouched by everything except `PUT /v1/me/balance`. D-04 rests on a signed rule, so it is asserted rather than reviewed for.
+6. **Partial override** (new in v1.1) — for a scenario overriding an arbitrary subset of fields, changing any non-overridden field in Base changes the resolved value, and changing an overridden field does not. The general form of M1 case 25.11.
 
 ### 13.4 Layers and gates
 
@@ -718,14 +793,16 @@ Six sprints. The sequencing argument matters as much as the list: the engine shi
 | # | Sprint | Delivers | Done when |
 |---|---|---|---|
 | **0** | Foundation | Repo, Docker, CI skeleton, import contracts, config, health check | CI green on an empty app |
-| **1** | **Engine** | types, calendar, expand, forecast, compare, full fixture + property suite | 100% branch coverage on `engine/`; every §13.2 case named and passing; **no API exists yet** |
-| **2** | Auth & identity | register, login, refresh, logout, settings, password reset (stubbed sender) | Full auth API tested; rate limits live |
-| **3** | Scenarios & transactions | scenario CRUD, Base protection, duplicate/archive, transaction CRUD, categories seeded | Base cannot be deleted; ownership enforced on every route |
-| **4** | Overlays & resolution | overlay create/patch/delete, resolver, resolved list with `origin` | Isolation property test passes against the real DB |
-| **5** | Forecast & compare API | forecast endpoint, compare endpoint, drivers | Client fixtures pass end-to-end through HTTP |
+| **1** | **Engine** | types, calendar, expand, forecast, compare, full fixture + property suite | 100% branch coverage on `engine/`; every §13.2 case named and passing; every M1 engine-level case in `fixtures/m1/`; **no API exists yet** |
+| **2** | Auth & identity | register, login, refresh, logout, settings, `PUT /me/balance`, password reset (stubbed sender) | Full auth API tested; rate limits live; balance-immutability property test green |
+| **3** | Scenarios & transactions | scenario CRUD, Base protection, duplicate (§10.2), archive/restore (§10.3), transaction CRUD, dependents (§10.4), categories seeded | Base cannot be deleted or archived; M1 25.16 and 25.17 pass; ownership enforced on every route |
+| **4** | Overlays & resolution | overlay create/patch/delete, resolver, resolved list with `origin` and per-field override metadata | Isolation and partial-override property tests pass against the real DB; **M1 25.11 passes** |
+| **5** | Forecast & compare API | forecast endpoint with `current_month` / `months_elapsed`, compare endpoint, drivers | Every M1 case passes end-to-end through HTTP, including 27.3 |
 | **6** | Hardening | export, reset, delete account, logging, perf pass, deploy docs, handover | Staging stable; OpenAPI published; docs complete |
 
-**Sprint 1 is the one to protect.** Every instinct on a client project says start with login screens so there is something to demo. Resist it. The engine is where this project is won or lost, it needs no infrastructure, and finishing it early means the client's own test cases can be run against it while the designer is still in Figma.
+**Sprint 1 is the one to protect.** Every instinct on a client project says start with login screens so there is something to demo. Resist it. The engine is where this project is won or lost, it needs no infrastructure, and finishing it early means the M1 cases — and the client's own, when they arrive — can be run against it while the designer is still in Figma.
+
+**Sprint 4 is the one to review hardest.** M1 case 25.11 lives there, and it is the only case in the register where a plausible, tidy-looking implementation produces a confidently wrong number. Every PR touching `scenario_resolver.py` or the overlay schema needs two reviewers.
 
 ### Definition of done, per endpoint
 
@@ -739,7 +816,11 @@ The contract is the generated OpenAPI spec plus three things that are not in it:
 
 1. **The error code table (§11.2)** — every code needs `ar` and `en` strings in the app.
 2. **The overlay editing semantics** (architecture §9.2, screen spec §4.4). Editing a transaction with `origin = inherited` creates an **overlay**; it does not PATCH the Base transaction. This is the one place a mobile-side misunderstanding silently corrupts the user's real plan.
-3. **Formatting is the client's job.** The server sends integer minor units, ISO month keys and a currency code. It never sends a formatted amount, a month name or a user-facing sentence.
+3. **Send only changed fields on an overlay PATCH.** Echoing the whole resolved row back converts a partial override into a snapshot and breaks M1 R19 from the client side, even against a correct backend. M1 case 25.11 is the acceptance test and it fails on a client that echoes.
+4. **The Current Cash Balance is written only by `PUT /v1/me/balance`**, only from explicit user action. The client never derives it, adjusts it after a transaction write, or updates it optimistically on resume. It is displayed with `balance_as_of` and never as a bare figure.
+5. **`current_month` and `months_elapsed` come from the forecast response, not the device clock.** They position "today" within the ledger, drive the dashboard period window, and decide the stale-balance prompt.
+6. **Check dependents before deleting a Base transaction** — `GET /v1/transactions/{id}/dependents`, then the warning copy in screen spec §6.4.
+7. **Formatting is the client's job.** The server sends integer minor units, ISO month keys and a currency code. It never sends a formatted amount, a month name or a user-facing sentence.
 
 Provided by us:
 - Published `openapi.json` on every merge to `main`
