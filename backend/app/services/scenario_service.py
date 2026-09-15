@@ -1,9 +1,12 @@
 """Scenario CRUD, Base protection, duplicate, archive/unarchive.
 
-Duplicate copies only the source's own transactions in this milestone --
-scenario_overlays doesn't exist until M4, so there's nothing else to copy
-yet. Architecture §5.1: duplicating never creates a parent link; the copy
-is always a plain, non-base scenario regardless of what was duplicated.
+Duplicate copies a derived source's own overlays and own transactions,
+with fresh ids and an independent live link back to Base (D-13, M1 case
+25.15). A Base source copies nothing at all -- inheritance alone
+reproduces it (M1 case 25.16); copying Base's own rows would double
+every item. Architecture §5.1: duplicating never creates a parent link;
+the copy is always a plain, non-base scenario regardless of what was
+duplicated.
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.errors import APIError
 from app.db.models.scenario import Scenario
+from app.repositories.overlay_repository import OverlayRepository
 from app.repositories.scenario_repository import ScenarioRepository
 from app.repositories.transaction_repository import TransactionRepository
 
@@ -24,6 +28,7 @@ class ScenarioService:
         self.db = db
         self.scenarios = ScenarioRepository(db)
         self.transactions = TransactionRepository(db)
+        self.overlays = OverlayRepository(db)
 
     def list_for_user(
         self, user_id: uuid.UUID, *, include_archived: bool = False
@@ -94,19 +99,26 @@ class ScenarioService:
         self._check_name_available(user_id, new_name)
 
         copy = self.scenarios.create(user_id=user_id, name=new_name)
-        for txn in self.transactions.list_by_scenario(user_id, source.id):
-            self.transactions.create(
-                user_id=user_id,
-                scenario_id=copy.id,
-                name=txn.name,
-                amount_minor=txn.amount_minor,
-                direction=txn.direction,
-                category_id=txn.category_id,
-                notes=txn.notes,
-                recurrence=txn.recurrence,
-                start_date=txn.start_date,
-                end_date=txn.end_date,
-            )
+        if not source.is_base:
+            # Base source: copy nothing here at all -- see this module's
+            # docstring and M1 case 25.16. Only a derived source has
+            # overlays or own transactions worth copying in the first
+            # place, and both need copying together or the duplicate
+            # would silently lose whatever the source overrode/excluded.
+            self.overlays.copy_all(from_scenario_id=source.id, to_scenario_id=copy.id)
+            for txn in self.transactions.list_by_scenario(user_id, source.id):
+                self.transactions.create(
+                    user_id=user_id,
+                    scenario_id=copy.id,
+                    name=txn.name,
+                    amount_minor=txn.amount_minor,
+                    direction=txn.direction,
+                    category_id=txn.category_id,
+                    notes=txn.notes,
+                    recurrence=txn.recurrence,
+                    start_date=txn.start_date,
+                    end_date=txn.end_date,
+                )
         return copy
 
     def _check_name_available(self, user_id: uuid.UUID, name: str) -> None:

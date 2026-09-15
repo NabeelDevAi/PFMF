@@ -88,6 +88,27 @@ class OverlayRepository:
             )
         )
 
+    def copy_all(self, *, from_scenario_id: uuid.UUID, to_scenario_id: uuid.UUID) -> None:
+        """Used by ScenarioService.duplicate() (D-13, M1 case 25.15): each
+        of the source scenario's overlays gets a fresh id under the new
+        scenario, same base_transaction_id and same op/ovr_* fields --
+        overlays always target a Base row, which duplicating never
+        touches, so the copy keeps an independent live link to the same
+        Base transactions the source overrides or excludes."""
+        for overlay in self.list_by_scenario(from_scenario_id):
+            self.create(
+                scenario_id=to_scenario_id,
+                base_transaction_id=overlay.base_transaction_id,
+                op=overlay.op,
+                ovr_name=overlay.ovr_name,
+                ovr_amount_minor=overlay.ovr_amount_minor,
+                ovr_category_id=overlay.ovr_category_id,
+                ovr_recurrence=overlay.ovr_recurrence,
+                ovr_start_date=overlay.ovr_start_date,
+                ovr_end_date=overlay.ovr_end_date,
+                unset_end_date=overlay.unset_end_date,
+            )
+
     def create(
         self, *, scenario_id: uuid.UUID, base_transaction_id: uuid.UUID, **fields
     ) -> ScenarioOverlay:

@@ -173,6 +173,146 @@ def test_duplicating_base_produces_a_non_base_copy(client: TestClient) -> None:
     assert resp.json()["is_base"] is False
 
 
+def test_duplicate_of_base_with_transactions_yields_each_item_once(client: TestClient) -> None:
+    """M1 case 25.16, the specific bug this guards: a naive duplicate
+    copies Base's own rows into the copy *in addition to* the copy
+    inheriting them normally, doubling every item. Base has nothing of
+    its own to copy -- inheritance alone must reproduce it."""
+    headers = _auth_headers(client)
+    base_id = _list_scenarios(client, headers)[0]["id"]
+    client.post(
+        f"/v1/scenarios/{base_id}/transactions",
+        headers=headers,
+        json={
+            "name": "Rent",
+            "amount_minor": 300000,
+            "direction": "expense",
+            "recurrence": "monthly",
+            "start_date": "2026-01-01",
+        },
+    )
+
+    copy = client.post(
+        f"/v1/scenarios/{base_id}/duplicate", headers=headers, json={"name": "Base copy"}
+    ).json()
+
+    resolved = client.get(f"/v1/scenarios/{copy['id']}/transactions", headers=headers).json()[
+        "items"
+    ]
+    assert len(resolved) == 1
+    assert resolved[0]["origin"] == "inherited"
+    assert resolved[0]["name"] == "Rent"
+
+
+def test_duplicate_of_derived_scenario_copies_its_overlays(client: TestClient) -> None:
+    """D-13, M1 case 25.15: the copy must show the same excluded/
+    overridden state as its source, not a plain inherited view."""
+    headers = _auth_headers(client)
+    base_id = _list_scenarios(client, headers)[0]["id"]
+    rent = client.post(
+        f"/v1/scenarios/{base_id}/transactions",
+        headers=headers,
+        json={
+            "name": "Rent",
+            "amount_minor": 300000,
+            "direction": "expense",
+            "recurrence": "monthly",
+            "start_date": "2026-01-01",
+        },
+    ).json()
+    source = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    client.post(
+        f"/v1/scenarios/{source['id']}/overlays",
+        headers=headers,
+        json={"base_transaction_id": rent["id"], "op": "override", "ovr_amount_minor": 350000},
+    )
+
+    copy = client.post(f"/v1/scenarios/{source['id']}/duplicate", headers=headers, json={}).json()
+
+    resolved = client.get(f"/v1/scenarios/{copy['id']}/transactions", headers=headers).json()[
+        "items"
+    ]
+    assert len(resolved) == 1
+    assert resolved[0]["origin"] == "overridden"
+    assert resolved[0]["amount_minor"] == 350000
+
+
+def test_duplicate_is_independent_of_its_source(client: TestClient) -> None:
+    """M1 case 25.15 step 4: the copy gets its own overlay row, not a
+    shared reference -- editing the source's overlay afterward must
+    never touch the copy."""
+    headers = _auth_headers(client)
+    base_id = _list_scenarios(client, headers)[0]["id"]
+    rent = client.post(
+        f"/v1/scenarios/{base_id}/transactions",
+        headers=headers,
+        json={
+            "name": "Rent",
+            "amount_minor": 300000,
+            "direction": "expense",
+            "recurrence": "monthly",
+            "start_date": "2026-01-01",
+        },
+    ).json()
+    source = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    overlay = client.post(
+        f"/v1/scenarios/{source['id']}/overlays",
+        headers=headers,
+        json={"base_transaction_id": rent["id"], "op": "override", "ovr_amount_minor": 350000},
+    ).json()
+    copy = client.post(f"/v1/scenarios/{source['id']}/duplicate", headers=headers, json={}).json()
+
+    client.patch(
+        f"/v1/scenarios/{source['id']}/overlays/{overlay['id']}",
+        headers=headers,
+        json={"ovr_amount_minor": 999999},
+    )
+
+    source_items = client.get(f"/v1/scenarios/{source['id']}/transactions", headers=headers).json()[
+        "items"
+    ]
+    copy_items = client.get(f"/v1/scenarios/{copy['id']}/transactions", headers=headers).json()[
+        "items"
+    ]
+    assert source_items[0]["amount_minor"] == 999999
+    assert copy_items[0]["amount_minor"] == 350000  # untouched by editing the source's overlay
+
+
+def test_duplicate_keeps_live_base_inheritance(client: TestClient) -> None:
+    """M1 case 25.15: the copy keeps an independent live link to Base --
+    a later Base change to a field neither the source nor the copy
+    overrode must show up in both."""
+    headers = _auth_headers(client)
+    base_id = _list_scenarios(client, headers)[0]["id"]
+    rent = client.post(
+        f"/v1/scenarios/{base_id}/transactions",
+        headers=headers,
+        json={
+            "name": "Rent",
+            "amount_minor": 300000,
+            "direction": "expense",
+            "recurrence": "monthly",
+            "start_date": "2026-01-01",
+        },
+    ).json()
+    source = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    client.post(
+        f"/v1/scenarios/{source['id']}/overlays",
+        headers=headers,
+        json={"base_transaction_id": rent["id"], "op": "override", "ovr_end_date": "2026-12-01"},
+    )
+    copy = client.post(f"/v1/scenarios/{source['id']}/duplicate", headers=headers, json={}).json()
+
+    client.patch(f"/v1/transactions/{rent['id']}", headers=headers, json={"amount_minor": 400000})
+
+    for scenario_id in (source["id"], copy["id"]):
+        items = client.get(f"/v1/scenarios/{scenario_id}/transactions", headers=headers).json()[
+            "items"
+        ]
+        assert items[0]["amount_minor"] == 400000  # picked up from Base, neither overrode it
+        assert items[0]["end_date"] == "2026-12-01"  # each keeps its own override
+
+
 def test_scenario_not_found_for_another_user_returns_404_not_403(client: TestClient) -> None:
     headers_a = _auth_headers(client, email="owner@example.com")
     headers_b = _auth_headers(client, email="intruder@example.com")
