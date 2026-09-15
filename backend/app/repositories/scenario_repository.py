@@ -64,11 +64,15 @@ class ScenarioRepository:
         return list(self.db.scalars(stmt))
 
     def count_for_user(self, user_id: uuid.UUID) -> int:
-        """Includes archived scenarios -- they still exist and still
-        belong to the account, so still count against the cap. Used by
-        ScenarioService for the scenario.limit_reached check."""
+        """Excludes archived scenarios (architecture §6.2: "archived
+        scenarios do not count toward any scenario cap") -- archiving is
+        meant to actually declutter an account against the cap, not just
+        the switcher/list. Used by ScenarioService for the
+        scenario.limit_reached check."""
         return self.db.scalar(
-            select(func.count()).select_from(Scenario).where(Scenario.user_id == user_id)
+            select(func.count())
+            .select_from(Scenario)
+            .where(Scenario.user_id == user_id, Scenario.archived_at.is_(None))
         )
 
     def save(self, scenario: Scenario) -> None:

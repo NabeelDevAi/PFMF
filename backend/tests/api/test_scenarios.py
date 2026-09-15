@@ -412,13 +412,15 @@ def test_duplicate_also_respects_the_scenario_limit(client: TestClient, monkeypa
     assert resp.json()["error"]["code"] == "scenario.limit_reached"
 
 
-def test_archived_scenarios_still_count_toward_the_limit(client: TestClient, monkeypatch) -> None:
+def test_archived_scenarios_do_not_count_toward_the_limit(client: TestClient, monkeypatch) -> None:
+    """Architecture §6.2, locked: "archived scenarios do not count toward
+    any scenario cap." Archiving is meant to actually declutter an
+    account against the cap, not just the switcher/list."""
     headers = _auth_headers(client)
     plan = client.post("/v1/scenarios", headers=headers, json={"name": "To Archive"}).json()
     client.post(f"/v1/scenarios/{plan['id']}/archive", headers=headers)
 
-    _with_scenario_cap(monkeypatch, cap=2)  # Base + the archived plan already fill it
+    _with_scenario_cap(monkeypatch, cap=2)  # Base + one active plan -- the archived one is free
 
     resp = client.post("/v1/scenarios", headers=headers, json={"name": "One More"})
-    assert resp.status_code == 422
-    assert resp.json()["error"]["code"] == "scenario.limit_reached"
+    assert resp.status_code == 201

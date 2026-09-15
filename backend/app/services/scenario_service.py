@@ -133,11 +133,13 @@ class ScenarioService:
             raise APIError("scenario.name_taken", {"field": "name"})
 
     def _check_capacity(self, user_id: uuid.UUID) -> None:
-        # 50 plans per account (product decision, not derived from either
-        # locked doc -- both left the threshold as an open discovery
-        # question). Counts archived scenarios too; only Base is exempt,
-        # since it's created once at registration and this check never
-        # runs for it.
+        # 50 plans per account -- the threshold itself is a product
+        # decision, not derived from either locked doc (both left it as
+        # an open discovery question), but *whether archived scenarios
+        # count* is now locked (architecture §6.2): they don't.
+        # ScenarioRepository.count_for_user() excludes them. Base is
+        # separately exempt, since it's created once at registration and
+        # this check never runs for it.
         settings = get_settings()
         if self.scenarios.count_for_user(user_id) >= settings.max_scenarios_per_user:
             raise APIError("scenario.limit_reached")
