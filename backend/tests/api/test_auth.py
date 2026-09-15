@@ -117,7 +117,9 @@ def test_refresh_unknown_token_is_invalid(client: TestClient) -> None:
 def test_logout_revokes_the_refresh_token(client: TestClient) -> None:
     tokens = _register(client, email="logout@example.com")
     resp = client.post("/v1/auth/logout", json={"refresh_token": tokens["refresh_token"]})
-    assert resp.status_code == 204
+    assert resp.status_code == 200
+    assert resp.json()["message_en"]
+    assert resp.json()["message_ar"]
 
     after = client.post("/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert after.status_code == 401
@@ -125,7 +127,7 @@ def test_logout_revokes_the_refresh_token(client: TestClient) -> None:
 
 def test_logout_with_unknown_token_is_idempotent(client: TestClient) -> None:
     resp = client.post("/v1/auth/logout", json={"refresh_token": "never-issued"})
-    assert resp.status_code == 204
+    assert resp.status_code == 200
 
 
 def test_login_rate_limited_after_five_attempts_per_minute(client: TestClient) -> None:
@@ -155,7 +157,7 @@ def test_password_reset_flow(client: TestClient, monkeypatch) -> None:
     monkeypatch.setattr(ConsolePasswordResetSender, "send", fake_send)
 
     resp = client.post("/v1/auth/password-reset/request", json={"email": "reset@example.com"})
-    assert resp.status_code == 204
+    assert resp.status_code == 200
     assert captured["email"] == "reset@example.com"
     assert captured["token"]
 
@@ -163,7 +165,7 @@ def test_password_reset_flow(client: TestClient, monkeypatch) -> None:
         "/v1/auth/password-reset/confirm",
         json={"token": captured["token"], "new_password": "brand-new-pw"},
     )
-    assert confirm.status_code == 204
+    assert confirm.status_code == 200
 
     old_login = client.post(
         "/v1/auth/login", json={"email": "reset@example.com", "password": "original-pw"}
@@ -176,10 +178,10 @@ def test_password_reset_flow(client: TestClient, monkeypatch) -> None:
     assert new_login.status_code == 200
 
 
-def test_password_reset_request_for_unknown_email_still_returns_204(client: TestClient) -> None:
+def test_password_reset_request_for_unknown_email_still_returns_200(client: TestClient) -> None:
     """Never reveal whether an email is registered."""
     resp = client.post("/v1/auth/password-reset/request", json={"email": "ghost@example.com"})
-    assert resp.status_code == 204
+    assert resp.status_code == 200
 
 
 def test_password_reset_confirm_with_bad_token_is_rejected(client: TestClient) -> None:

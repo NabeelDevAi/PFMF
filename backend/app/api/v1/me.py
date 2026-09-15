@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.api.schemas.common import ActionResult
 from app.api.schemas.export import ExportOut
 from app.api.schemas.me import BalanceUpdate, MeOut, SettingsPatch
 from app.db.models.user import User
@@ -60,13 +61,19 @@ def export_data(user: User = Depends(get_current_user), db: Session = Depends(ge
     return ExportOut.from_data(data)
 
 
-@router.delete("/data", status_code=status.HTTP_204_NO_CONTENT)
-def reset_data(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> None:
+@router.delete("/data", response_model=ActionResult)
+def reset_data(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> ActionResult:
     ResetService(db).reset(user.id)
     db.commit()
+    return ActionResult.from_key("me.data_reset")
 
 
-@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
-def delete_account(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> None:
+@router.delete("", response_model=ActionResult)
+def delete_account(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> ActionResult:
     AccountService(db).delete_account(user.id)
     db.commit()
+    return ActionResult.from_key("me.account_deleted")

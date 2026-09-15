@@ -12,13 +12,15 @@ The API layer does exactly three things: authenticate the caller, validate the r
 
 ## 3. Error envelope
 
-Every non-2xx response has the same shape: a machine-readable code, optional structured parameters describing what specifically failed, and a request id. The server never sends a human-facing sentence — that's the client's job, keyed off the code (this is what makes Arabic/English a client-only concern, per the architecture doc's localization rules).
+**Revises the architecture doc's original §10 rule ("the server never returns display text") by explicit later product decision.** Every non-2xx response now carries a machine-readable `code` (kept, for client-side branching — e.g. `auth.token_expired` → refresh), structured `params`, a request id, **and** `message_en`/`message_ar` — ready-to-display bilingual text, generated server-side. The client picks by system language rather than maintaining its own ARB translation table keyed off `code`. See `app/core/errors.py`'s module docstring for the full reasoning and `12-open-questions-and-future-hardening.md` for the record of the decision.
+
+Messages are deliberately **generic per code**, not interpolated with `params` — a param like `field: "amount_minor"` isn't natural-language material without its own translation, and doing that properly would multiply scope well beyond a plain sentence.
 
 Every response, success or failure, carries a request id header, so a client-reported bug can be traced back to a specific request without needing to log any financial values.
 
 ## 4. Error code registry
 
-This table is a contract with the mobile client as much as it's an internal reference — every code needs an Arabic and English string on the Flutter side, and adding a new code without updating that side ships an untranslated error message to a real user.
+This table is a contract with the mobile client as much as it's an internal reference. The actual bilingual strings live in `app/core/errors.py`'s `ERROR_MESSAGES` (keyed identically to this table, with an import-time check that the two never drift apart) — **the Arabic side is a first-pass machine draft, not reviewed copy**, per the architecture doc's own note that Arabic wording needs a native speaker's review before release. Adding a code without also adding its message pair fails at import time, not silently.
 
 | Code | HTTP | Meaning |
 |---|---|---|
@@ -64,3 +66,7 @@ This table is a contract with the mobile client as much as it's an internal refe
 ## 6. Rate limiting (adapted for this build)
 
 The original spec's rate limits (5/min on login and register per IP, 3/hour on password reset per email) are kept as the target numbers, but implemented as a simple **in-memory** limiter for now rather than a Redis-backed one — there's a single process on a single machine, so in-memory state is sufficient. This is explicitly listed in `12-open-questions-and-future-hardening.md` as something to revisit before this ever runs as more than one process (an in-memory limiter's counters don't survive a restart or coordinate across processes, which matters once there's more than one).
+
+## 7. Action-endpoint bilingual confirmations
+
+Same product decision as §3: the handful of endpoints that used to return a bare `204 No Content` now return `200 OK` with `{"message_en", "message_ar"}` (a 204 response can't carry a body at all — RFC 7231). Scoped deliberately narrow: only endpoints with **no resource to return** get this (`app/core/messages.py`'s `SUCCESS_MESSAGES`) — `POST /auth/logout`, `POST /auth/password-reset/request`, `POST /auth/password-reset/confirm`, `DELETE /transactions/{id}`, `DELETE /scenarios/{id}`, `DELETE /scenarios/{id}/overlays/{ovid}`, `DELETE /categories/{id}`, `DELETE /me/data`, `DELETE /me`. Everything that returns the resource it just created or changed (`POST /scenarios`, `PATCH /transactions/{id}`, ...) is unchanged — the client already has what it needs from that data to compose its own contextual copy (e.g. "Added to Buy House"), per screen-flow §10.

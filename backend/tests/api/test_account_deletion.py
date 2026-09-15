@@ -21,7 +21,7 @@ def test_delete_account_removes_the_user(client: TestClient) -> None:
     headers = {"Authorization": f"Bearer {tokens['access_token']}"}
 
     resp = client.delete("/v1/me", headers=headers)
-    assert resp.status_code == 204
+    assert resp.status_code == 200
 
     # The old email can be registered again -- the account is truly gone,
     # not just emptied (that would be reset, not deletion).

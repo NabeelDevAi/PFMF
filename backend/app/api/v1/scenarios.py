@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.api.schemas.common import ActionResult
 from app.api.schemas.scenarios import (
     ScenarioCreate,
     ScenarioDuplicateRequest,
@@ -67,12 +68,13 @@ def patch_scenario(
     return ScenarioOut.model_validate(scenario)
 
 
-@router.delete("/{scenario_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{scenario_id}", response_model=ActionResult)
 def delete_scenario(
     scenario_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)
-) -> None:
+) -> ActionResult:
     ScenarioService(db).delete(user.id, scenario_id)
     db.commit()
+    return ActionResult.from_key("scenario.deleted")
 
 
 @router.post(

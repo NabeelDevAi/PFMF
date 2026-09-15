@@ -234,7 +234,7 @@ def test_delete_overlay_reverts_to_inherited(client: TestClient) -> None:
     ).json()
 
     resp = client.delete(f"/v1/scenarios/{plan['id']}/overlays/{created['id']}", headers=headers)
-    assert resp.status_code == 204
+    assert resp.status_code == 200
 
     resolved = _resolved(client, headers, plan["id"])
     assert resolved[0]["amount_minor"] == 300000  # back to Base's value

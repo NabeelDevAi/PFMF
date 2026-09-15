@@ -219,7 +219,7 @@ def test_delete_transaction(client: TestClient) -> None:
     txn = _create_txn(client, headers, scenario_id)
 
     resp = client.delete(f"/v1/transactions/{txn['id']}", headers=headers)
-    assert resp.status_code == 204
+    assert resp.status_code == 200
 
     listed = client.get(f"/v1/scenarios/{scenario_id}/transactions", headers=headers).json()[
         "items"

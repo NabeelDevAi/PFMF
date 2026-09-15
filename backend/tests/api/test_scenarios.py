@@ -71,7 +71,7 @@ def test_non_base_scenario_can_be_deleted(client: TestClient) -> None:
     headers = _auth_headers(client)
     created = client.post("/v1/scenarios", headers=headers, json={"name": "Temp"}).json()
     resp = client.delete(f"/v1/scenarios/{created['id']}", headers=headers)
-    assert resp.status_code == 204
+    assert resp.status_code == 200
     assert client.get(f"/v1/scenarios/{created['id']}", headers=headers).status_code == 404
 
 

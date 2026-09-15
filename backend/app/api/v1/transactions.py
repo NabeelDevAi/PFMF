@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.api.schemas.common import ActionResult
 from app.api.schemas.transactions import (
     DependentsOut,
     TransactionCreate,
@@ -108,12 +109,13 @@ def patch_transaction(
     return TransactionOut.from_row(txn, _own_or_added(scenario.is_base))
 
 
-@transactions_router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+@transactions_router.delete("/{transaction_id}", response_model=ActionResult)
 def delete_transaction(
     transaction_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)
-) -> None:
+) -> ActionResult:
     TransactionService(db).delete(user.id, transaction_id)
     db.commit()
+    return ActionResult.from_key("transaction.deleted")
 
 
 @transactions_router.get("/{transaction_id}/dependents", response_model=DependentsOut)

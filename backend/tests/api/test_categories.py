@@ -189,7 +189,7 @@ def test_delete_unused_category_succeeds_and_disappears_from_the_list(client: Te
     ).json()
 
     resp = client.delete(f"/v1/categories/{category['id']}", headers=headers)
-    assert resp.status_code == 204
+    assert resp.status_code == 200
 
     items = client.get("/v1/categories", headers=headers).json()["items"]
     assert all(c["id"] != category["id"] for c in items)

@@ -13,15 +13,18 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.core.errors import APIError
+from app.core.errors import ERROR_MESSAGES, APIError
 
 logger = logging.getLogger("pfmf.errors")
 
 
 def _envelope(request: Request, code: str, params: dict) -> dict:
+    message_en, message_ar = ERROR_MESSAGES[code]
     return {
         "error": {
             "code": code,
+            "message_en": message_en,
+            "message_ar": message_ar,
             "params": params,
             "request_id": getattr(request.state, "request_id", None),
         }

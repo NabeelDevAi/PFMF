@@ -56,7 +56,7 @@ def test_reset_deletes_derived_scenarios_and_base_transactions(client: TestClien
     setup = _setup_data(client, headers)
 
     resp = client.delete("/v1/me/data", headers=headers)
-    assert resp.status_code == 204
+    assert resp.status_code == 200
 
     scenarios = client.get("/v1/scenarios?include_archived=true", headers=headers).json()["items"]
     assert len(scenarios) == 1

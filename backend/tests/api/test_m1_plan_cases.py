@@ -261,7 +261,7 @@ def test_m1_case_25_12_base_item_deleted_plan_had_inherited_it(client: TestClien
     test_plan = create_plan(client, headers, "Test Plan")
 
     resp = client.delete(f"/v1/transactions/{plan['utilities_id']}", headers=headers)
-    assert resp.status_code == 204
+    assert resp.status_code == 200
 
     assert december_2026_closing(client, headers, plan["base_id"]) == 29_100_000  # 291,000
     assert december_2026_closing(client, headers, test_plan["id"]) == 29_100_000
@@ -292,7 +292,7 @@ def test_m1_case_25_13_base_item_deleted_plan_had_changed_it(client: TestClient)
     assert dependents["scenarios"][0]["name"] == "Rent Ends"
 
     resp = client.delete(f"/v1/transactions/{plan['rent_id']}", headers=headers)
-    assert resp.status_code == 204
+    assert resp.status_code == 200
 
     assert december_2026_closing(client, headers, plan["base_id"]) == 33_540_000  # 335,400
     assert december_2026_closing(client, headers, rent_ends["id"]) == 33_540_000
@@ -312,7 +312,7 @@ def test_m1_case_25_14_base_item_deleted_plan_had_removed_it(client: TestClient)
     assert december_2026_closing(client, headers, no_rent["id"]) == 33_540_000  # sanity, case 25.4
 
     resp = client.delete(f"/v1/transactions/{plan['rent_id']}", headers=headers)
-    assert resp.status_code == 204
+    assert resp.status_code == 200
 
     assert december_2026_closing(client, headers, no_rent["id"]) == 33_540_000  # unchanged
     assert december_2026_closing(client, headers, plan["base_id"]) == 33_540_000

@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.api.schemas.common import ActionResult
 from app.api.schemas.overlays import OverlayCreate, OverlayOut, OverlayPatch
 from app.db.models.user import User
 from app.db.session import get_db
@@ -75,12 +76,13 @@ def patch_overlay(
     return OverlayOut.model_validate(overlay)
 
 
-@router.delete("/{scenario_id}/overlays/{overlay_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{scenario_id}/overlays/{overlay_id}", response_model=ActionResult)
 def delete_overlay(
     scenario_id: uuid.UUID,
     overlay_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> None:
+) -> ActionResult:
     OverlayService(db).delete(user.id, scenario_id, overlay_id)
     db.commit()
+    return ActionResult.from_key("overlay.deleted")

@@ -97,7 +97,7 @@ def _duplicate_scenario(client, headers, state, draw) -> None:
 def _delete_scenario(client, headers, state, draw) -> None:
     sid = draw(st.sampled_from(state.non_base_ids))
     resp = client.delete(f"/v1/scenarios/{sid}", headers=headers)
-    if resp.status_code == 204:
+    if resp.status_code == 200:
         state.non_base_ids.remove(sid)
         state.archived_ids.discard(sid)
 
@@ -133,7 +133,7 @@ def _patch_transaction(client, headers, state, draw) -> None:
 def _delete_transaction(client, headers, state, draw) -> None:
     tid = draw(st.sampled_from(state.base_txn_ids))
     resp = client.delete(f"/v1/transactions/{tid}", headers=headers)
-    if resp.status_code == 204:
+    if resp.status_code == 200:
         state.base_txn_ids.remove(tid)
 
 
@@ -157,7 +157,7 @@ def _patch_overlay(client, headers, state, draw) -> None:
 def _delete_overlay(client, headers, state, draw) -> None:
     sid, oid = draw(st.sampled_from(state.overlays))
     resp = client.delete(f"/v1/scenarios/{sid}/overlays/{oid}", headers=headers)
-    if resp.status_code == 204:
+    if resp.status_code == 200:
         state.overlays.remove((sid, oid))
 
 
@@ -182,7 +182,7 @@ def _patch_category(client, headers, state, draw) -> None:
 def _delete_category(client, headers, state, draw) -> None:
     cid = draw(st.sampled_from(state.category_ids))
     resp = client.delete(f"/v1/categories/{cid}", headers=headers)
-    if resp.status_code == 204:
+    if resp.status_code == 200:
         state.category_ids.remove(cid)
 
 
