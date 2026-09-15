@@ -88,6 +88,26 @@ class TransactionCreate(BaseModel):
     notes: str | None = None
 
 
+class ScenarioRefOut(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
+class DependentsOut(BaseModel):
+    """Backs GET /transactions/{id}/dependents -- architecture §6.3/§9.
+    `count` lets the client cheaply pick between the two C5 confirm-dialog
+    variants (screen-flow §6.4); `scenarios` lets it name the affected
+    plans instead of showing a bare count."""
+
+    count: int
+    scenarios: list[ScenarioRefOut]
+
+    @classmethod
+    def from_scenarios(cls, scenarios) -> DependentsOut:
+        refs = [ScenarioRefOut(id=s.id, name=s.name) for s in scenarios]
+        return cls(count=len(refs), scenarios=refs)
+
+
 class TransactionPatch(BaseModel):
     name: str | None = None
     amount_minor: int | None = None

@@ -50,6 +50,27 @@ class OverlayRepository:
         )
         return bool(self.db.scalar(stmt))
 
+    def scenarios_referencing(
+        self, base_transaction_id: uuid.UUID, user_id: uuid.UUID
+    ) -> list[Scenario]:
+        """Every scenario this user owns that holds an overlay on this
+        Base transaction -- backs GET /transactions/{id}/dependents
+        (architecture §6.3/§9, build spec §10.4): the client warns before
+        deleting a Base row exactly when this list is non-empty. One
+        indexed query on scenario_overlays.base_transaction_id (migration
+        0013), joined to scenarios for both the name and the ownership
+        filter."""
+        stmt = (
+            select(Scenario)
+            .join(ScenarioOverlay, ScenarioOverlay.scenario_id == Scenario.id)
+            .where(
+                ScenarioOverlay.base_transaction_id == base_transaction_id,
+                Scenario.user_id == user_id,
+            )
+            .order_by(Scenario.name)
+        )
+        return list(self.db.scalars(stmt))
+
     def get_by_id(self, scenario_id: uuid.UUID, overlay_id: uuid.UUID) -> ScenarioOverlay | None:
         return self.db.scalar(
             select(ScenarioOverlay).where(

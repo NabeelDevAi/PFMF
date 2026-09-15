@@ -56,6 +56,7 @@ Built as a small addition beyond the architecture doc's locked §9 surface (see 
 | `POST /scenarios/{id}/transactions` | Create a transaction local to this scenario (`origin = added`) | `transaction.*`, `validation.*` |
 | `PATCH /transactions/{id}` | Edit a transaction the caller owns directly (i.e. `origin = own` in Base, or `origin = added` in a derived scenario) | `transaction.direction_immutable`, `transaction.end_before_start`, `transaction.one_time_has_end_date`, `resource.not_found` |
 | `DELETE /transactions/{id}` | Delete a transaction the caller owns directly | `resource.not_found` |
+| `GET /transactions/{id}/dependents` | Scenarios holding an overlay on this transaction (architecture §6.3) — lets the client warn before deleting a Base row that other plans have overridden or excluded | `resource.not_found` |
 
 **Critical routing rule, restated because it's the single riskiest interaction in the product:** editing or removing a row whose `origin` is `inherited` or `overridden` does **not** hit these two PATCH/DELETE routes at all — it goes through the overlay endpoints below instead. The client is responsible for choosing the right call based on the `origin` it was shown (architecture §9.2, screen-flow §4.4); this backend enforces the *result* of that rule (overlays can only target Base transactions, Base transactions are never mutated from a scenario context) but cannot stop a client from calling the wrong endpoint — which is exactly why this gets its own emphasis in the mobile handoff.
 

@@ -279,3 +279,69 @@ def test_cannot_list_transactions_of_another_users_scenario(client: TestClient) 
 
     resp = client.get(f"/v1/scenarios/{scenario_id}/transactions", headers=headers_b)
     assert resp.status_code == 404
+
+
+def test_dependents_is_empty_for_a_transaction_with_no_overlays(client: TestClient) -> None:
+    headers = _auth_headers(client, email="nodeps@example.com")
+    scenario_id = _base_scenario_id(client, headers)
+    txn = _create_txn(client, headers, scenario_id)
+
+    resp = client.get(f"/v1/transactions/{txn['id']}/dependents", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json() == {"count": 0, "scenarios": []}
+
+
+def test_dependents_is_empty_for_a_scenario_local_transaction(client: TestClient) -> None:
+    """A transaction created directly on a non-Base scenario can never be
+    an overlay target -- overlays only ever target Base rows -- so this
+    is a plain empty result, not an error."""
+    headers = _auth_headers(client, email="localdeps@example.com")
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    txn = _create_txn(client, headers, plan["id"], name="Mortgage")
+
+    resp = client.get(f"/v1/transactions/{txn['id']}/dependents", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json() == {"count": 0, "scenarios": []}
+
+
+def test_dependents_lists_every_scenario_holding_an_overlay(client: TestClient) -> None:
+    headers = _auth_headers(client, email="deps@example.com")
+    base_id = _base_scenario_id(client, headers)
+    rent = _create_txn(client, headers, base_id)
+
+    plan_a = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan_b = client.post("/v1/scenarios", headers=headers, json={"name": "Retire Early"}).json()
+    client.post(
+        f"/v1/scenarios/{plan_a['id']}/overlays",
+        headers=headers,
+        json={"base_transaction_id": rent["id"], "op": "exclude"},
+    )
+    client.post(
+        f"/v1/scenarios/{plan_b['id']}/overlays",
+        headers=headers,
+        json={"base_transaction_id": rent["id"], "op": "override", "ovr_amount_minor": 350000},
+    )
+    # A third plan with no overlay on this transaction -- must not appear.
+    client.post("/v1/scenarios", headers=headers, json={"name": "Untouched"})
+
+    resp = client.get(f"/v1/transactions/{rent['id']}/dependents", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["count"] == 2
+    names = {s["name"] for s in body["scenarios"]}
+    assert names == {"Buy House", "Retire Early"}
+
+
+def test_dependents_not_found_for_another_users_transaction(client: TestClient) -> None:
+    headers_a = _auth_headers(client, email="depsowner@example.com")
+    headers_b = _auth_headers(client, email="depsintruder@example.com")
+    scenario_id = _base_scenario_id(client, headers_a)
+    txn = _create_txn(client, headers_a, scenario_id)
+
+    resp = client.get(f"/v1/transactions/{txn['id']}/dependents", headers=headers_b)
+    assert resp.status_code == 404
+
+
+def test_dependents_requires_auth(client: TestClient) -> None:
+    resp = client.get("/v1/transactions/00000000-0000-0000-0000-000000000000/dependents")
+    assert resp.status_code == 401

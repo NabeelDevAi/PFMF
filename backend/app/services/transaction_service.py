@@ -15,9 +15,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import APIError
+from app.db.models.scenario import Scenario
 from app.db.models.transaction import Transaction
 from app.domain.enums import Direction, Recurrence
 from app.repositories.category_repository import CategoryRepository
+from app.repositories.overlay_repository import OverlayRepository
 from app.repositories.scenario_repository import ScenarioRepository
 from app.repositories.transaction_repository import TransactionRepository
 
@@ -28,12 +30,23 @@ class TransactionService:
         self.transactions = TransactionRepository(db)
         self.scenarios = ScenarioRepository(db)
         self.categories = CategoryRepository(db)
+        self.overlays = OverlayRepository(db)
 
     def get(self, user_id: uuid.UUID, transaction_id: uuid.UUID) -> Transaction:
         txn = self.transactions.get_by_id(user_id, transaction_id)
         if txn is None:
             raise APIError("resource.not_found")
         return txn
+
+    def dependents(self, user_id: uuid.UUID, transaction_id: uuid.UUID) -> list[Scenario]:
+        """Scenarios holding an overlay on this transaction (architecture
+        §6.3/§9, build spec §10.4) -- lets the client warn before deleting
+        a Base row. Ownership-checked the same way every other route
+        here is; a non-Base transaction simply has no overlays pointing
+        at it (overlays only ever target Base rows), so this returns an
+        empty list for one rather than needing a special case."""
+        self.get(user_id, transaction_id)
+        return self.overlays.scenarios_referencing(transaction_id, user_id)
 
     def create(
         self,

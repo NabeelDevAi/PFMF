@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.api.schemas.transactions import (
+    DependentsOut,
     TransactionCreate,
     TransactionListOut,
     TransactionOut,
@@ -113,6 +114,14 @@ def delete_transaction(
 ) -> None:
     TransactionService(db).delete(user.id, transaction_id)
     db.commit()
+
+
+@transactions_router.get("/{transaction_id}/dependents", response_model=DependentsOut)
+def get_dependents(
+    transaction_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> DependentsOut:
+    scenarios = TransactionService(db).dependents(user.id, transaction_id)
+    return DependentsOut.from_scenarios(scenarios)
 
 
 def _own_or_added(is_base: bool) -> Origin:
