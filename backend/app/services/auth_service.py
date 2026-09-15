@@ -56,10 +56,10 @@ class AuthService:
             raise APIError("auth.email_taken", {"field": "email"})
 
         user = self.users.create(email=email, password_hash=hash_password(password))
-        # Opening balance date defaults to today; onboarding (PATCH /me/settings)
-        # is expected to set the real value. The engine never reads a clock --
+        # balance_as_of defaults to today; onboarding is expected to set the
+        # real Current Cash Balance value. The engine never reads a clock --
         # this is a service, so it's allowed to.
-        self.settings_repo.create_default(user_id=user.id, opening_balance_date=date.today())
+        self.settings_repo.create_default(user_id=user.id, balance_as_of=date.today())
         self.scenarios.create_base(user_id=user.id)
 
         logger.info("user registered", extra={"user_id": user.id})

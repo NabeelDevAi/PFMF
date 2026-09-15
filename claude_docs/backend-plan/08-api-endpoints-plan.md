@@ -18,10 +18,10 @@ All routes below sit under `/v1` and (except the ones marked public) require a v
 | Endpoint | Purpose | Key error codes |
 |---|---|---|
 | `GET /me` | Current user's identity/profile basics | — |
-| `PATCH /me/settings` | Update currency, locale, opening balance and its effective date | `validation.*` |
+| `PATCH /me/settings` | Update currency, locale, the Current Cash Balance and its as-of date | `validation.*` |
 | `DELETE /me` | Permanent account deletion (screen-flow F9), distinct from `/me/data` reset below. Not in the architecture doc's locked §9 list — built as a small addition, see `12-open-questions-and-future-hardening.md` §3 | — |
 
-Note: **opening balance changes are consequential** — every scenario's forecast shifts. The API accepts the change unconditionally; the screen-flow spec's requirement for a "preview the effect before confirming" experience is a client-side concern (the client can call the forecast endpoint with a hypothetical value before committing, if that pattern is chosen — no special backend support is needed for it).
+Note: **Current Cash Balance changes are consequential** — every scenario's forecast shifts. The API accepts the change unconditionally; the screen-flow spec's requirement for a "preview the effect before confirming" experience is a client-side concern (the client can call the forecast endpoint with a hypothetical value before committing, if that pattern is chosen — no special backend support is needed for it).
 
 ## 3. Categories
 
@@ -41,7 +41,7 @@ Built as a small addition beyond the architecture doc's locked §9 surface (see 
 | `GET /scenarios?include_archived=` | List the caller's plans | — |
 | `POST /scenarios` | Create a plan (optionally with a starting-balance override) | `scenario.name_taken`, `scenario.limit_reached`, `validation.*` |
 | `GET /scenarios/{id}` | Plan detail | `resource.not_found` |
-| `PATCH /scenarios/{id}` | Rename, change opening-balance override | `scenario.base_immutable` (if attempted on Base for a field that shouldn't move), `resource.not_found` |
+| `PATCH /scenarios/{id}` | Rename, change the Current Cash Balance override (amount only — D-14) | `scenario.base_immutable` (if attempted on Base for a field that shouldn't move), `resource.not_found` |
 | `DELETE /scenarios/{id}` | Delete a plan | `scenario.base_immutable`, `resource.not_found` |
 | `POST /scenarios/{id}/duplicate` | Copy a plan's own transactions and overlays (no parent link created) | `resource.not_found` |
 | `POST /scenarios/{id}/archive` | Archive | `scenario.base_immutable`, `resource.not_found` |

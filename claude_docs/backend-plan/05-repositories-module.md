@@ -9,7 +9,7 @@ Every SQL statement in the entire backend lives here, and nowhere else. Services
 | Repository | Backs | Notes |
 |---|---|---|
 | `UserRepository` | `users` | Lookup by id and by email (for login/registration); email uniqueness check. |
-| `UserSettingsRepository` | `user_settings` | One row per user; read and patch (currency, locale, opening balance + date). |
+| `UserSettingsRepository` | `user_settings` | One row per user; read and patch (currency, locale, Current Cash Balance + as-of date). |
 | `CategoryRepository` | `categories` | Reads system categories (user_id NULL) plus a given user's own categories together; user categories are created/owned per user. |
 | `ScenarioRepository` | `scenarios` | CRUD scoped by user; a dedicated lookup for "the Base scenario for this user" (used constantly by the resolver); enforces at the query level that archived scenarios are excluded unless asked for. |
 | `TransactionRepository` | `transactions` | CRUD scoped by user *and* by scenario; a method to list all of a given scenario's own rows (used both for Base's transactions and for a derived scenario's own additions). |

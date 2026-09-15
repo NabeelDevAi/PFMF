@@ -1,6 +1,6 @@
 {
   "name": "A transaction that started years before the anchor month still contributes, but only from the anchor forward",
-  "opening_balance_minor": 0,
+  "current_balance_minor": 0,
   "anchor_month": "2026-01",
   "horizon_months": 3,
   "transactions": [

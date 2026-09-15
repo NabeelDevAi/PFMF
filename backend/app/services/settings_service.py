@@ -31,8 +31,8 @@ class SettingsService:
         display_name: str | None = None,
         currency_code: str | None = None,
         locale: str | None = None,
-        opening_balance_minor: int | None = None,
-        opening_balance_date: date | None = None,
+        current_balance_minor: int | None = None,
+        balance_as_of: date | None = None,
     ) -> UserSettings:
         settings = self.get(user_id)
         if display_name is not None:
@@ -41,9 +41,9 @@ class SettingsService:
             settings.currency_code = currency_code
         if locale is not None:
             settings.locale = locale
-        if opening_balance_minor is not None:
-            settings.opening_balance_minor = opening_balance_minor
-        if opening_balance_date is not None:
-            settings.opening_balance_date = opening_balance_date
+        if current_balance_minor is not None:
+            settings.current_balance_minor = current_balance_minor
+        if balance_as_of is not None:
+            settings.balance_as_of = balance_as_of
         self.repo.save(settings)
         return settings

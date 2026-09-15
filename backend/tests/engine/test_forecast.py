@@ -31,7 +31,7 @@ def test_golden_fixture(fixture_path: Path) -> None:
     transactions = [txn_from_dict(t) for t in case["transactions"]]
 
     ledger = forecast(
-        opening_balance_minor=case["opening_balance_minor"],
+        current_balance_minor=case["current_balance_minor"],
         anchor_month=YearMonth.parse(case["anchor_month"]),
         horizon_months=case["horizon_months"],
         transactions=transactions,
@@ -59,7 +59,7 @@ def test_weekly_over_120_months_is_fast_and_reconciles() -> None:
 
     started = time.perf_counter()
     ledger = forecast(
-        opening_balance_minor=0,
+        current_balance_minor=0,
         anchor_month=YearMonth(2026, 1),
         horizon_months=120,
         transactions=[t],

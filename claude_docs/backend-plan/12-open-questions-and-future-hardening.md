@@ -38,3 +38,17 @@ These affect the backend directly enough to list here, even though they're reall
 ## 5. Python version note
 
 This build uses Python 3.14.4 (already set up in the project's `venv/`), rather than the 3.12 the original backend spec assumed. Revisit only if a required dependency doesn't yet support 3.14 — not expected to be an issue, but worth a quick check at the start of M0 rather than discovering it mid-build.
+
+## 6. v1.1 doc alignment (in progress)
+
+The three locked docs were updated to v1.1 after M0–M5 and the Tier 1/2/3 backlog were already built against v1.0. Going through the delta one item at a time, same protocol as the Tier 2 backlog: explain, decide, build or skip, verify, commit.
+
+1. ~~**Rename `opening_balance_*` → Current Cash Balance vocabulary (D-04).**~~ **Done.** `user_settings.opening_balance_minor`/`opening_balance_date` → `current_balance_minor`/`balance_as_of`; `scenarios.opening_balance_override_minor` → `current_balance_override_minor`; the engine's `forecast()` param and `Ledger` field renamed to match. Migration `0012`. Pure rename — no behavior change; every downstream item below builds on this vocabulary.
+2. **`PUT /v1/me/balance`** as a dedicated endpoint, split out of `PATCH /me/settings` — not yet built.
+3. **`GET /v1/transactions/{id}/dependents`** — not yet built.
+4. **`ScenarioService.duplicate()` doesn't copy overlays** — a real bug against D-13, found while reviewing the v1.1 delta. Not yet fixed.
+5. **Archived-scenario guards** (rejected as compare operand / duplicate source, `scenario.not_archived` on a non-archived unarchive) — not yet built.
+6. **Scenario cap vs. archived scenarios** — v1.1 §6.2 now says archived scenarios don't count toward the cap; this build's existing, tested behavior is the opposite (Tier 1 #3). Needs a decision before touching it.
+7. **Forecast anchor defaults to `balance_as_of`, not today**; horizon accepts any value in range, not just {12,36,60,120}; response gains `current_month`/`months_elapsed` — not yet built.
+8. New error codes `balance.as_of_in_future`, `balance.as_of_too_old`, `scenario.archived`, `scenario.not_archived` — land alongside the items that raise them.
+9. **M1-numbered fixture reorganization** (`fixtures/m1/`) — blocked on having the actual M1 document, which isn't in this repo; the underlying behavioral tests (balance immutability, partial override, duplicate/archive/restore, dashboard period agreement, currency-change-no-amount-change) are buildable now and don't need to wait on the reorganization itself.

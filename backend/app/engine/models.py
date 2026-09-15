@@ -65,7 +65,7 @@ class Ledger:
 
     anchor_month: YearMonth
     horizon_months: int
-    opening_balance_minor: Minor
+    current_balance_minor: Minor
     months: tuple[MonthRow, ...]
     occurrences: tuple[Occurrence, ...]
 

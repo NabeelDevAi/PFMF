@@ -1,6 +1,6 @@
 {
   "name": "An end_date before the transaction's first occurrence yields zero occurrences -- valid, not an error",
-  "opening_balance_minor": 100000,
+  "current_balance_minor": 100000,
   "anchor_month": "2026-01",
   "horizon_months": 12,
   "transactions": [

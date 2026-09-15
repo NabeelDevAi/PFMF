@@ -1,6 +1,6 @@
 {
   "name": "A one-time transaction dated after the window contributes nothing",
-  "opening_balance_minor": 50000,
+  "current_balance_minor": 50000,
   "anchor_month": "2026-01",
   "horizon_months": 3,
   "transactions": [

@@ -12,8 +12,11 @@ from app.db.base import Base
 
 
 class UserSettings(Base):
-    """Currency, locale, opening balance and its effective date. One row
-    per user (D-04). See architecture doc §5."""
+    """Currency, locale, and the Current Cash Balance (D-04): a figure
+    the user confirmed, dated by `balance_as_of`, never mutated by the
+    system. Distinct from the Projected Balance, which is an engine
+    output and isn't stored anywhere. One row per user. See architecture
+    doc §5."""
 
     __tablename__ = "user_settings"
 
@@ -23,10 +26,10 @@ class UserSettings(Base):
     display_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     currency_code: Mapped[str] = mapped_column(CHAR(3), nullable=False, server_default="SAR")
     locale: Mapped[str] = mapped_column(Text, nullable=False, server_default="en")  # 'en' | 'ar'
-    opening_balance_minor: Mapped[int] = mapped_column(
+    current_balance_minor: Mapped[int] = mapped_column(
         BigInteger, nullable=False, server_default="0"
     )
-    opening_balance_date: Mapped[date] = mapped_column(Date, nullable=False)
+    balance_as_of: Mapped[date] = mapped_column(Date, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), onupdate=func.now(), nullable=False
     )

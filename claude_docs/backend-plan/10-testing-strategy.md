@@ -39,7 +39,7 @@ Each engine test case is a JSON file: an input transaction set, an anchor month,
 
 ## 4. Named edge cases (carried forward from the architecture/backend-spec docs)
 
-Monthly recurrence clamping to month-end across a non-leap year · annual recurrence on Feb 29 landing on Feb 28 in non-leap years · weekly recurrence across a five-payday month · an end date before the first possible occurrence yielding zero occurrences · an end date exactly on an occurrence date being inclusive · a one-time transaction before the window · a one-time transaction after the window · a transaction starting before the anchor month contributing only from the anchor forward · an empty scenario producing a flat ledger at the opening balance · a 120-month horizon with weekly recurrence (performance and correctness together) · an overlay's `unset_end_date` turning a previously-ending transaction open-ended.
+Monthly recurrence clamping to month-end across a non-leap year · annual recurrence on Feb 29 landing on Feb 28 in non-leap years · weekly recurrence across a five-payday month · an end date before the first possible occurrence yielding zero occurrences · an end date exactly on an occurrence date being inclusive · a one-time transaction before the window · a one-time transaction after the window · a transaction starting before the anchor month contributing only from the anchor forward · an empty scenario producing a flat ledger at the Current Cash Balance · a 120-month horizon with weekly recurrence (performance and correctness together) · an overlay's `unset_end_date` turning a previously-ending transaction open-ended.
 
 ## 5. Test database mechanics
 

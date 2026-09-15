@@ -1,6 +1,6 @@
 {
   "name": "A scenario with no transactions at all produces a flat ledger at the opening balance",
-  "opening_balance_minor": 75000,
+  "current_balance_minor": 75000,
   "anchor_month": "2026-01",
   "horizon_months": 4,
   "transactions": [],

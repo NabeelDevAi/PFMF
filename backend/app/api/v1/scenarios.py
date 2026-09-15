@@ -35,7 +35,7 @@ def create_scenario(
     body: ScenarioCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> ScenarioOut:
     scenario = ScenarioService(db).create(
-        user.id, name=body.name, opening_balance_override_minor=body.opening_balance_override_minor
+        user.id, name=body.name, current_balance_override_minor=body.current_balance_override_minor
     )
     db.commit()
     return ScenarioOut.model_validate(scenario)
@@ -60,8 +60,8 @@ def patch_scenario(
         user.id,
         scenario_id,
         name=body.name,
-        opening_balance_override_minor=body.opening_balance_override_minor,
-        _unset_opening_balance_override=body.unset_opening_balance_override,
+        current_balance_override_minor=body.current_balance_override_minor,
+        _unset_current_balance_override=body.unset_current_balance_override,
     )
     db.commit()
     return ScenarioOut.model_validate(scenario)

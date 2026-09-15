@@ -11,9 +11,9 @@ ANCHOR = YearMonth(2026, 1)
 HORIZON = 6
 
 
-def _forecast(transactions: list[ResolvedTransaction], opening_balance_minor: int = 0) -> Ledger:
+def _forecast(transactions: list[ResolvedTransaction], current_balance_minor: int = 0) -> Ledger:
     return forecast(
-        opening_balance_minor=opening_balance_minor,
+        current_balance_minor=current_balance_minor,
         anchor_month=ANCHOR,
         horizon_months=HORIZON,
         transactions=transactions,
@@ -69,8 +69,8 @@ def test_driver_contributions_sum_to_closing_balance_delta() -> None:
         txn("mortgage", "Mortgage", 200000, "expense", "monthly", "2026-01-01"),
         txn("car", "Car loan", 75000, "expense", "biweekly", "2026-01-05"),
     ]
-    a = _forecast(base_txns, opening_balance_minor=500000)
-    b = _forecast(scenario_txns, opening_balance_minor=500000)
+    a = _forecast(base_txns, current_balance_minor=500000)
+    b = _forecast(scenario_txns, current_balance_minor=500000)
 
     result = compare(a, b)
     total_contribution = sum(d.total_contribution_minor for d in result.drivers)

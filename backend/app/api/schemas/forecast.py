@@ -41,7 +41,7 @@ class ForecastOut(BaseModel):
     anchor_month: str
     horizon_months: int
     currency_code: str
-    opening_balance_minor: int
+    current_balance_minor: int
     months: list[MonthRowOut]
     totals: TotalsOut
 
@@ -69,7 +69,7 @@ class ForecastOut(BaseModel):
             anchor_month=str(ledger.anchor_month),
             horizon_months=ledger.horizon_months,
             currency_code=result.currency_code,
-            opening_balance_minor=ledger.opening_balance_minor,
+            current_balance_minor=ledger.current_balance_minor,
             months=months,
             totals=totals,
         )

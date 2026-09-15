@@ -26,13 +26,13 @@ class ScenarioRepository:
         return scenario
 
     def create(
-        self, *, user_id: uuid.UUID, name: str, opening_balance_override_minor: int | None = None
+        self, *, user_id: uuid.UUID, name: str, current_balance_override_minor: int | None = None
     ) -> Scenario:
         scenario = Scenario(
             user_id=user_id,
             name=name,
             is_base=False,
-            opening_balance_override_minor=opening_balance_override_minor,
+            current_balance_override_minor=current_balance_override_minor,
         )
         self.db.add(scenario)
         self.db.flush()

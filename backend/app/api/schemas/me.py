@@ -10,8 +10,8 @@ class SettingsOut(BaseModel):
     display_name: str | None
     currency_code: str
     locale: str
-    opening_balance_minor: int
-    opening_balance_date: date
+    current_balance_minor: int
+    balance_as_of: date
 
     model_config = {"from_attributes": True}
 
@@ -29,5 +29,5 @@ class SettingsPatch(BaseModel):
     display_name: str | None = None
     currency_code: str | None = None
     locale: str | None = None
-    opening_balance_minor: int | None = None
-    opening_balance_date: date | None = None
+    current_balance_minor: int | None = None
+    balance_as_of: date | None = None

@@ -40,8 +40,8 @@ def test_patch_settings_updates_and_returns_new_values(client: TestClient) -> No
             "display_name": "Nabeel",
             "currency_code": "USD",
             "locale": "ar",
-            "opening_balance_minor": 450000,
-            "opening_balance_date": "2026-01-01",
+            "current_balance_minor": 450000,
+            "balance_as_of": "2026-01-01",
         },
     )
     assert resp.status_code == 200
@@ -49,8 +49,8 @@ def test_patch_settings_updates_and_returns_new_values(client: TestClient) -> No
     assert settings["display_name"] == "Nabeel"
     assert settings["currency_code"] == "USD"
     assert settings["locale"] == "ar"
-    assert settings["opening_balance_minor"] == 450000
-    assert settings["opening_balance_date"] == "2026-01-01"
+    assert settings["current_balance_minor"] == 450000
+    assert settings["balance_as_of"] == "2026-01-01"
 
 
 def test_patch_settings_partial_update_leaves_other_fields_untouched(client: TestClient) -> None:

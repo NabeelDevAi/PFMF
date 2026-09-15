@@ -15,8 +15,8 @@ class UserSettingsRepository:
     def get_by_user_id(self, user_id: uuid.UUID) -> UserSettings | None:
         return self.db.get(UserSettings, user_id)
 
-    def create_default(self, *, user_id: uuid.UUID, opening_balance_date: date) -> UserSettings:
-        settings = UserSettings(user_id=user_id, opening_balance_date=opening_balance_date)
+    def create_default(self, *, user_id: uuid.UUID, balance_as_of: date) -> UserSettings:
+        settings = UserSettings(user_id=user_id, balance_as_of=balance_as_of)
         self.db.add(settings)
         self.db.flush()
         return settings

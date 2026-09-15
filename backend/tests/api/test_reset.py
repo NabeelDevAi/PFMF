@@ -1,6 +1,6 @@
 """DELETE /me/data -- account reset (architecture §9, RFP §4.8).
 Deletes every derived scenario and Base's own transactions, resets the
-opening balance, but never deletes Base itself or the account, and never
+Current Cash Balance, but never deletes Base itself or the account, and never
 touches currency/locale/display_name. See reset_service.py's docstring
 for why the boundary was drawn there."""
 
@@ -19,8 +19,8 @@ def _setup_data(client: TestClient, headers: dict) -> dict:
         "/v1/me/settings",
         headers=headers,
         json={
-            "opening_balance_minor": 500000,
-            "opening_balance_date": "2026-01-01",
+            "current_balance_minor": 500000,
+            "balance_as_of": "2026-01-01",
             "currency_code": "USD",
             "locale": "ar",
             "display_name": "Nabeel",
@@ -79,14 +79,14 @@ def test_reset_deletes_overlays_via_scenario_cascade(client: TestClient) -> None
     assert setup["plan"]["id"] not in {s["id"] for s in export["scenarios"]}
 
 
-def test_reset_resets_opening_balance_but_keeps_preferences(client: TestClient) -> None:
+def test_reset_resets_current_balance_but_keeps_preferences(client: TestClient) -> None:
     headers = _auth_headers(client, email="wipebalance@example.com")
     _setup_data(client, headers)
 
     client.delete("/v1/me/data", headers=headers)
 
     me = client.get("/v1/me", headers=headers).json()
-    assert me["settings"]["opening_balance_minor"] == 0
+    assert me["settings"]["current_balance_minor"] == 0
     # Preferences survive a reset -- they aren't "data" in the RFP §4.8 sense.
     assert me["settings"]["currency_code"] == "USD"
     assert me["settings"]["locale"] == "ar"
@@ -95,7 +95,7 @@ def test_reset_resets_opening_balance_but_keeps_preferences(client: TestClient) 
 
 def test_reset_forecast_still_works_afterward(client: TestClient) -> None:
     """Base must survive in a genuinely usable state -- a flat ledger at
-    the reset opening balance, not a broken account."""
+    the reset Current Cash Balance, not a broken account."""
     headers = _auth_headers(client, email="wipeforecast@example.com")
     setup = _setup_data(client, headers)
 
@@ -106,7 +106,7 @@ def test_reset_forecast_still_works_afterward(client: TestClient) -> None:
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["opening_balance_minor"] == 0
+    assert body["current_balance_minor"] == 0
     assert all(m["closing_balance_minor"] == 0 for m in body["months"])
 
 

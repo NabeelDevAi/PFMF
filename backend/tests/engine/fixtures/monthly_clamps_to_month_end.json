@@ -1,6 +1,6 @@
 {
   "name": "Monthly starting Jan 31 clamps in short months, never drifts",
-  "opening_balance_minor": 0,
+  "current_balance_minor": 0,
   "anchor_month": "2026-01",
   "horizon_months": 5,
   "transactions": [

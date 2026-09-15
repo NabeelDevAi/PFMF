@@ -1,6 +1,6 @@
 {
   "name": "An end_date that falls exactly on an occurrence date includes that occurrence",
-  "opening_balance_minor": 0,
+  "current_balance_minor": 0,
   "anchor_month": "2026-01",
   "horizon_months": 5,
   "transactions": [

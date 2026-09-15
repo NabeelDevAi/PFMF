@@ -36,11 +36,11 @@ def _base_id(client: TestClient, headers: dict) -> str:
     return client.get("/v1/scenarios", headers=headers).json()["items"][0]["id"]
 
 
-def _set_opening_balance(client: TestClient, headers: dict, amount_minor: int) -> None:
+def _set_current_balance(client: TestClient, headers: dict, amount_minor: int) -> None:
     resp = client.patch(
         "/v1/me/settings",
         headers=headers,
-        json={"opening_balance_minor": amount_minor, "opening_balance_date": "2026-01-01"},
+        json={"current_balance_minor": amount_minor, "balance_as_of": "2026-01-01"},
     )
     assert resp.status_code == 200
 
@@ -52,7 +52,7 @@ def test_forecast_over_http_matches_engine_golden_fixture(
     case = json.loads((FIXTURES_DIR / fixture_name).read_text())
     headers = _auth_headers(client, email=f"golden-{fixture_name}@example.com")
     base_id = _base_id(client, headers)
-    _set_opening_balance(client, headers, case["opening_balance_minor"])
+    _set_current_balance(client, headers, case["current_balance_minor"])
 
     for txn in case["transactions"]:
         body = {
@@ -70,7 +70,7 @@ def test_forecast_over_http_matches_engine_golden_fixture(
     # the API restricts horizon to {12, 36, 60, 120} (architecture §11.4).
     # Request the smallest allowed horizon that covers the fixture's own, and
     # compare only the months the fixture actually asserts -- the engine
-    # computes each month sequentially from opening balance forward, so a
+    # computes each month sequentially from the Current Cash Balance forward, so a
     # longer window never changes the earlier months' values.
     api_horizon = next(h for h in (12, 36, 60, 120) if h >= case["horizon_months"])
     resp = client.get(
@@ -81,7 +81,7 @@ def test_forecast_over_http_matches_engine_golden_fixture(
     assert resp.status_code == 200, resp.text
     body = resp.json()
 
-    assert body["opening_balance_minor"] == case["opening_balance_minor"]
+    assert body["current_balance_minor"] == case["current_balance_minor"]
     assert body["anchor_month"] == case["anchor_month"]
     covered_months = body["months"][: len(case["expected_months"])]
     for actual, expected in zip(covered_months, case["expected_months"], strict=True):
@@ -108,28 +108,28 @@ def test_forecast_reflects_changed_currency(client: TestClient) -> None:
     assert resp.json()["currency_code"] == "USD"
 
 
-def test_forecast_uses_scenario_opening_balance_override(client: TestClient) -> None:
+def test_forecast_uses_scenario_current_balance_override(client: TestClient) -> None:
     headers = _auth_headers(client, email="override@example.com")
-    _set_opening_balance(client, headers, 100000)
+    _set_current_balance(client, headers, 100000)
     plan = client.post(
         "/v1/scenarios",
         headers=headers,
-        json={"name": "Buy House", "opening_balance_override_minor": 999999},
+        json={"name": "Buy House", "current_balance_override_minor": 999999},
     ).json()
 
     resp = client.get(
         f"/v1/scenarios/{plan['id']}/forecast", headers=headers, params={"horizon": 12}
     )
-    assert resp.json()["opening_balance_minor"] == 999999
+    assert resp.json()["current_balance_minor"] == 999999
 
 
 def test_forecast_falls_back_to_settings_when_no_override(client: TestClient) -> None:
     headers = _auth_headers(client, email="nooverride@example.com")
-    _set_opening_balance(client, headers, 555000)
+    _set_current_balance(client, headers, 555000)
     base_id = _base_id(client, headers)
 
     resp = client.get(f"/v1/scenarios/{base_id}/forecast", headers=headers, params={"horizon": 12})
-    assert resp.json()["opening_balance_minor"] == 555000
+    assert resp.json()["current_balance_minor"] == 555000
 
 
 def test_forecast_invalid_horizon_is_rejected(client: TestClient) -> None:
@@ -240,7 +240,8 @@ def test_compare_base_against_derived_scenario_drivers_and_deltas(client: TestCl
 
 def test_compare_percentage_is_none_when_baseline_month_is_zero(client: TestClient) -> None:
     headers = _auth_headers(client, email="cmppct@example.com")
-    base_id = _base_id(client, headers)  # opening balance 0, no transactions -> every month is 0
+    # Current Cash Balance 0, no transactions -> every month is 0
+    base_id = _base_id(client, headers)
     plan = client.post("/v1/scenarios", headers=headers, json={"name": "Side Income"}).json()
     client.post(
         f"/v1/scenarios/{plan['id']}/transactions",

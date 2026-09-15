@@ -1,6 +1,6 @@
 {
   "name": "Weekly recurrence produces 5 occurrences in a 5-payday month, not a normalised average",
-  "opening_balance_minor": 0,
+  "current_balance_minor": 0,
   "anchor_month": "2026-01",
   "horizon_months": 2,
   "transactions": [

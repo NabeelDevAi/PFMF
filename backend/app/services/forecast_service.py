@@ -57,17 +57,17 @@ class ForecastService:
         settings = self.settings.get(user_id)
         # Scenario's own override wins; NULL means inherit from user_settings
         # (architecture §5) -- the same rule Base itself follows, since Base
-        # is just a scenario with is_base=true, no special-cased opening
-        # balance logic of its own.
-        opening_balance_minor = (
-            scenario.opening_balance_override_minor
-            if scenario.opening_balance_override_minor is not None
-            else settings.opening_balance_minor
+        # is just a scenario with is_base=true, no special-cased Current
+        # Cash Balance logic of its own.
+        current_balance_minor = (
+            scenario.current_balance_override_minor
+            if scenario.current_balance_override_minor is not None
+            else settings.current_balance_minor
         )
 
         resolved = self.resolver.resolve(user_id, scenario)
         ledger = engine_forecast(
-            opening_balance_minor=opening_balance_minor,
+            current_balance_minor=current_balance_minor,
             anchor_month=anchor_month,
             horizon_months=horizon_months,
             transactions=resolved,

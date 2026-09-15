@@ -66,4 +66,4 @@ def transaction_sets(*, min_size: int = 0, max_size: int = 12) -> st.SearchStrat
 
 
 HORIZONS = st.sampled_from([12, 36, 60, 120])
-OPENING_BALANCES = st.integers(min_value=-(10**9), max_value=10**9)
+CURRENT_BALANCES = st.integers(min_value=-(10**9), max_value=10**9)

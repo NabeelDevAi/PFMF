@@ -11,7 +11,7 @@ Routers (the API layer) are not allowed to contain business logic — if a route
 | Service | Responsibility | Key rules it enforces |
 |---|---|---|
 | `AuthService` | Registration, login, token issuance, refresh rotation, logout | Password hashing (Argon2id), refresh token rotation and reuse-detection (revoke the whole family on reuse), rate limiting hooks |
-| `SettingsService` | Reading/patching `user_settings` | Opening balance and its effective date are user-entered, not derived |
+| `SettingsService` | Reading/patching `user_settings` | The Current Cash Balance and its as-of date are user-entered, never system-derived (D-04) |
 | `CategoryService` | Listing system + user categories, creating user categories | System categories are read-only to the user; only user-created ones can be added/edited |
 | `ScenarioService` | Scenario CRUD, duplicate, archive/unarchive | **Base can never be deleted or archived, and a second Base can never be created** — enforced here, backed by the DB's partial unique index; duplicating a scenario copies its own transactions and overlays, and does not create a parent link (flat, one level deep) |
 | `TransactionService` | Transaction CRUD | Direction is immutable after creation (changing income↔expense is delete-and-recreate, not edit); a transaction's recurrence/date fields obey the frozen recurrence set and the one-time-has-no-end-date rule; per-scenario transaction count cap |

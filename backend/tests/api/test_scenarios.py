@@ -30,7 +30,7 @@ def test_create_scenario(client: TestClient) -> None:
     body = resp.json()
     assert body["name"] == "Buy House"
     assert body["is_base"] is False
-    assert body["opening_balance_override_minor"] is None
+    assert body["current_balance_override_minor"] is None
 
 
 def test_create_scenario_duplicate_name_is_conflict(client: TestClient) -> None:
@@ -96,35 +96,35 @@ def test_archive_and_unarchive_round_trip(client: TestClient) -> None:
     assert created["id"] in {s["id"] for s in _list_scenarios(client, headers)}
 
 
-def test_patch_scenario_rename_and_opening_balance_override(client: TestClient) -> None:
+def test_patch_scenario_rename_and_current_balance_override(client: TestClient) -> None:
     headers = _auth_headers(client)
     created = client.post("/v1/scenarios", headers=headers, json={"name": "Draft"}).json()
 
     resp = client.patch(
         f"/v1/scenarios/{created['id']}",
         headers=headers,
-        json={"name": "Buy House", "opening_balance_override_minor": 250000},
+        json={"name": "Buy House", "current_balance_override_minor": 250000},
     )
     assert resp.status_code == 200
     assert resp.json()["name"] == "Buy House"
-    assert resp.json()["opening_balance_override_minor"] == 250000
+    assert resp.json()["current_balance_override_minor"] == 250000
 
 
-def test_patch_scenario_unset_opening_balance_override(client: TestClient) -> None:
+def test_patch_scenario_unset_current_balance_override(client: TestClient) -> None:
     headers = _auth_headers(client)
     created = client.post(
         "/v1/scenarios",
         headers=headers,
-        json={"name": "Draft", "opening_balance_override_minor": 100},
+        json={"name": "Draft", "current_balance_override_minor": 100},
     ).json()
 
     resp = client.patch(
         f"/v1/scenarios/{created['id']}",
         headers=headers,
-        json={"unset_opening_balance_override": True},
+        json={"unset_current_balance_override": True},
     )
     assert resp.status_code == 200
-    assert resp.json()["opening_balance_override_minor"] is None
+    assert resp.json()["current_balance_override_minor"] is None
 
 
 def test_duplicate_scenario_copies_own_transactions_with_a_new_id(client: TestClient) -> None:

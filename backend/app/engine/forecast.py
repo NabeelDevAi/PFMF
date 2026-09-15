@@ -19,7 +19,7 @@ from .types import Direction, Minor, YearMonth
 
 def forecast(
     *,
-    opening_balance_minor: Minor,
+    current_balance_minor: Minor,
     anchor_month: YearMonth,
     horizon_months: int,
     transactions: list[ResolvedTransaction],
@@ -53,7 +53,7 @@ def forecast(
 
     # 4. ACCUMULATE
     rows: list[MonthRow] = []
-    balance = opening_balance_minor
+    balance = current_balance_minor
     for i in range(horizon_months):
         ym = anchor_month.add(i)
         income, expense = buckets.get(ym, (0, 0))
@@ -64,7 +64,7 @@ def forecast(
     return Ledger(
         anchor_month=anchor_month,
         horizon_months=horizon_months,
-        opening_balance_minor=opening_balance_minor,
+        current_balance_minor=current_balance_minor,
         months=tuple(rows),
         occurrences=tuple(occurrences),
     )

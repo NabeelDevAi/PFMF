@@ -38,7 +38,7 @@ class Scenario(Base):
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
     is_base: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
-    opening_balance_override_minor: Mapped[int | None] = mapped_column(
+    current_balance_override_minor: Mapped[int | None] = mapped_column(
         nullable=True
     )  # NULL = inherit
     archived_at: Mapped[datetime | None] = mapped_column(nullable=True)

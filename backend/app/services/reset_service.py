@@ -15,7 +15,7 @@ the exact boundary between reset and delete-account:
   case. Base's own transactions are cleared instead.
 - User-created categories are deleted (system categories are global
   reference data, untouched).
-- opening_balance_minor and opening_balance_date reset to the same
+- current_balance_minor and balance_as_of reset to the same
   defaults a fresh registration gets (0, today) -- this is financial
   state, the anchor for a plan that no longer exists.
 - currency_code, locale, and display_name are left untouched: account
@@ -54,6 +54,6 @@ class ResetService:
         self.transactions.delete_all_for_scenario(user_id, base.id)
         self.categories.delete_all_owned_by_user(user_id)
 
-        settings.opening_balance_minor = 0
-        settings.opening_balance_date = date.today()
+        settings.current_balance_minor = 0
+        settings.balance_as_of = date.today()
         self.settings.save(settings)

@@ -19,39 +19,39 @@ from hypothesis import given, settings
 from app.engine.compare import compare
 from app.engine.forecast import forecast
 from app.engine.types import YearMonth
-from tests.engine.strategies import HORIZONS, OPENING_BALANCES, transaction_sets
+from tests.engine.strategies import CURRENT_BALANCES, HORIZONS, transaction_sets
 
 ANCHOR = YearMonth(2026, 1)
 
 
-@given(txns=transaction_sets(), opening=OPENING_BALANCES, horizon=HORIZONS)
+@given(txns=transaction_sets(), balance=CURRENT_BALANCES, horizon=HORIZONS)
 @settings(max_examples=200, deadline=None)
-def test_reconciliation_property(txns, opening, horizon) -> None:
-    """Final balance equals opening plus the signed sum of every
-    occurrence that actually landed in the window -- RFP §10's core
-    criterion, mechanised."""
+def test_reconciliation_property(txns, balance, horizon) -> None:
+    """Final balance equals the Current Cash Balance plus the signed sum
+    of every occurrence that actually landed in the window -- RFP §10's
+    core criterion, mechanised."""
     ledger = forecast(
-        opening_balance_minor=opening,
+        current_balance_minor=balance,
         anchor_month=ANCHOR,
         horizon_months=horizon,
         transactions=txns,
     )
-    expected = opening + sum(o.signed_minor for o in ledger.occurrences)
+    expected = balance + sum(o.signed_minor for o in ledger.occurrences)
     assert ledger.months[-1].closing_balance_minor == expected
 
 
-@given(txns=transaction_sets(), opening=OPENING_BALANCES, horizon=HORIZONS)
+@given(txns=transaction_sets(), balance=CURRENT_BALANCES, horizon=HORIZONS)
 @settings(max_examples=200, deadline=None)
-def test_determinism_property(txns, opening, horizon) -> None:
+def test_determinism_property(txns, balance, horizon) -> None:
     """Same inputs, run twice, byte-identical output."""
     first = forecast(
-        opening_balance_minor=opening,
+        current_balance_minor=balance,
         anchor_month=ANCHOR,
         horizon_months=horizon,
         transactions=txns,
     )
     second = forecast(
-        opening_balance_minor=opening,
+        current_balance_minor=balance,
         anchor_month=ANCHOR,
         horizon_months=horizon,
         transactions=txns,
@@ -62,11 +62,11 @@ def test_determinism_property(txns, opening, horizon) -> None:
 @given(
     txns_a=transaction_sets(),
     txns_b=transaction_sets(),
-    opening=OPENING_BALANCES,
+    balance=CURRENT_BALANCES,
     horizon=HORIZONS,
 )
 @settings(max_examples=200, deadline=None)
-def test_driver_completeness_property(txns_a, txns_b, opening, horizon) -> None:
+def test_driver_completeness_property(txns_a, txns_b, balance, horizon) -> None:
     """Driver contributions sum exactly to the closing-balance delta.
     txns_a and txns_b are generated independently but both assign ids
     sequentially from t0 -- overlapping ids land as "modified" (same
@@ -75,13 +75,13 @@ def test_driver_completeness_property(txns_a, txns_b, opening, horizon) -> None:
     this organically fuzzes all three change types without needing to
     orchestrate it explicitly."""
     a = forecast(
-        opening_balance_minor=opening,
+        current_balance_minor=balance,
         anchor_month=ANCHOR,
         horizon_months=horizon,
         transactions=txns_a,
     )
     b = forecast(
-        opening_balance_minor=opening,
+        current_balance_minor=balance,
         anchor_month=ANCHOR,
         horizon_months=horizon,
         transactions=txns_b,

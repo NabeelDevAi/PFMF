@@ -18,7 +18,7 @@ from tests.engine.helpers import txn
 
 RECONCILIATION_CASES: list[dict] = [
     {
-        "opening_balance_minor": 0,
+        "current_balance_minor": 0,
         "anchor_month": YearMonth(2026, 1),
         "horizon_months": 12,
         "transactions": [
@@ -28,8 +28,8 @@ RECONCILIATION_CASES: list[dict] = [
         ],
     },
     {
-        # Negative opening balance -- already in overdraft at the anchor month.
-        "opening_balance_minor": -250000,
+        # Negative Current Cash Balance -- already in overdraft at the anchor month.
+        "current_balance_minor": -250000,
         "anchor_month": YearMonth(2026, 6),
         "horizon_months": 36,
         "transactions": [
@@ -50,7 +50,7 @@ RECONCILIATION_CASES: list[dict] = [
     {
         # A transaction with every recurrence type represented at once,
         # several starting long before the anchor month.
-        "opening_balance_minor": 1000000,
+        "current_balance_minor": 1000000,
         "anchor_month": YearMonth(2027, 1),
         "horizon_months": 120,
         "transactions": [
@@ -66,7 +66,7 @@ RECONCILIATION_CASES: list[dict] = [
     },
     {
         # Everything ends partway through the horizon.
-        "opening_balance_minor": 0,
+        "current_balance_minor": 0,
         "anchor_month": YearMonth(2026, 1),
         "horizon_months": 24,
         "transactions": [
@@ -96,7 +96,7 @@ RECONCILIATION_CASES: list[dict] = [
 def test_reconciliation_holds_across_varied_cases() -> None:
     for case in RECONCILIATION_CASES:
         ledger = forecast(**case)
-        expected = case["opening_balance_minor"] + sum(o.signed_minor for o in ledger.occurrences)
+        expected = case["current_balance_minor"] + sum(o.signed_minor for o in ledger.occurrences)
         assert ledger.months[-1].closing_balance_minor == expected, case["transactions"]
 
 
@@ -119,13 +119,13 @@ def test_driver_completeness_across_a_larger_diff() -> None:
     anchor = YearMonth(2027, 1)
     horizon = 120
     a = forecast(
-        opening_balance_minor=1000000,
+        current_balance_minor=1000000,
         anchor_month=anchor,
         horizon_months=horizon,
         transactions=a_txns,
     )
     b = forecast(
-        opening_balance_minor=1000000,
+        current_balance_minor=1000000,
         anchor_month=anchor,
         horizon_months=horizon,
         transactions=b_txns,

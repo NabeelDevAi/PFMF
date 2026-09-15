@@ -1,6 +1,6 @@
 {
   "name": "Annual starting Feb 29 clamps to Feb 28 in the following non-leap year",
-  "opening_balance_minor": 0,
+  "current_balance_minor": 0,
   "anchor_month": "2024-02",
   "horizon_months": 13,
   "transactions": [

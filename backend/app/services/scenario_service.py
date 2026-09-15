@@ -37,14 +37,14 @@ class ScenarioService:
         return scenario
 
     def create(
-        self, user_id: uuid.UUID, *, name: str, opening_balance_override_minor: int | None = None
+        self, user_id: uuid.UUID, *, name: str, current_balance_override_minor: int | None = None
     ) -> Scenario:
         self._check_capacity(user_id)
         self._check_name_available(user_id, name)
         return self.scenarios.create(
             user_id=user_id,
             name=name,
-            opening_balance_override_minor=opening_balance_override_minor,
+            current_balance_override_minor=current_balance_override_minor,
         )
 
     def patch(
@@ -53,17 +53,17 @@ class ScenarioService:
         scenario_id: uuid.UUID,
         *,
         name: str | None = None,
-        opening_balance_override_minor: int | None = None,
-        _unset_opening_balance_override: bool = False,
+        current_balance_override_minor: int | None = None,
+        _unset_current_balance_override: bool = False,
     ) -> Scenario:
         scenario = self.get(user_id, scenario_id)
         if name is not None and name != scenario.name:
             self._check_name_available(user_id, name)
             scenario.name = name
-        if _unset_opening_balance_override:
-            scenario.opening_balance_override_minor = None
-        elif opening_balance_override_minor is not None:
-            scenario.opening_balance_override_minor = opening_balance_override_minor
+        if _unset_current_balance_override:
+            scenario.current_balance_override_minor = None
+        elif current_balance_override_minor is not None:
+            scenario.current_balance_override_minor = current_balance_override_minor
         self.scenarios.save(scenario)
         return scenario
 

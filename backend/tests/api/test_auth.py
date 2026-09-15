@@ -44,7 +44,7 @@ def test_register_creates_base_scenario_and_default_settings(client: TestClient)
     settings = me.json()["settings"]
     assert settings["currency_code"] == "SAR"
     assert settings["locale"] == "en"
-    assert settings["opening_balance_minor"] == 0
+    assert settings["current_balance_minor"] == 0
 
 
 def test_login_success(client: TestClient) -> None:
