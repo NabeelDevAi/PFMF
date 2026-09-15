@@ -70,3 +70,9 @@ Three scoping decisions were made explicitly, not assumed:
 **The Arabic text is a first-pass machine draft, explicitly not reviewed copy** — architecture §10 (via screen-flow §6) already requires a native speaker's review before release for every user-facing string in the product, same as any Flutter-side ARB file would need. `app/core/errors.py`'s `ERROR_MESSAGES` and `app/core/messages.py`'s `SUCCESS_MESSAGES` are both flagged in their own docstrings as pending that review; swapping in reviewed text is a data change in those two files, not a redesign.
 
 Built: `ERROR_MESSAGES` (27 codes) in `app/core/errors.py`, with an import-time check that it never drifts out of sync with `ERROR_STATUS`; `SUCCESS_MESSAGES` (9 keys) in the new `app/core/messages.py`; the shared `ActionResult` schema (`app/api/schemas/common.py`); all 9 action routes changed from 204→200; pure-unit tests for both registries (`tests/core/test_bilingual_messages.py`) plus real-HTTP envelope tests (`tests/api/test_error_envelope.py`).
+
+## 8. M1 §11 decisions, locked during this session
+
+M1 §11 ("Decisions still outstanding") frames these as client decisions, but `milestone-1-final.md` uses `[Client Name]`/`[Company Name]` as literal placeholders — this is a solo project, so these are the user's own decisions to make, not blocked on a third party. Recorded here as each is locked; deployment-adjacent items (data residency, the in-memory rate limiter, staging/CORS) are deliberately not on this list yet — held until deployment itself is picked up.
+
+1. ~~**Dark mode**~~ **Decided: skipped for Phase 1**, matching M1's own recommendation. No backend impact either way — this affects Flutter/design theming only.
