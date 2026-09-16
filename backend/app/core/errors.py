@@ -50,6 +50,7 @@ ERROR_STATUS: dict[str, int] = {
     "auth.current_password_incorrect": 422,  # addition: PATCH /me/password's current_password check
     "balance.as_of_in_future": 422,
     "balance.as_of_too_old": 422,
+    "balance.negative_not_allowed": 422,
     "validation.required": 422,
     "validation.invalid": 422,
     "transaction.amount_not_positive": 422,
@@ -101,6 +102,10 @@ ERROR_MESSAGES: dict[str, tuple[str, str]] = {
     "balance.as_of_in_future": (
         "The date you entered can't be in the future.",
         "لا يمكن أن يكون التاريخ الذي أدخلته في المستقبل.",
+    ),
+    "balance.negative_not_allowed": (
+        "Current Cash Balance can't be negative.",
+        "لا يمكن أن يكون رصيدك النقدي الحالي سالبًا.",
     ),
     "balance.as_of_too_old": (
         "The date you entered is too far in the past.",

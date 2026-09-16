@@ -32,6 +32,7 @@ This table is a contract with the mobile client as much as it's an internal refe
 | `auth.current_password_incorrect` | 422 | `PATCH /me/password`'s current-password check failed |
 | `balance.as_of_in_future` | 422 | `PUT /me/balance`'s as-of date is later than today |
 | `balance.as_of_too_old` | 422 | `PUT /me/balance`'s as-of date is beyond the 5-year backstop |
+| `balance.negative_not_allowed` | 422 | `PUT /me/balance`'s amount is negative — Current Cash Balance must be `>= 0` (product decision, not derived from a locked doc; found and closed while verifying the initial-balance-entry screen) |
 | `validation.required` | 422 | A required field is missing |
 | `validation.invalid` | 422 | Generic field validation failure |
 | `transaction.amount_not_positive` | 422 | Amount is zero or negative |

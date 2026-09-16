@@ -6,7 +6,7 @@ For the full endpoint index (every endpoint that exists, whether or not it's bee
 
 **Status legend:**
 - ✅ **Verified** — walked through against a specific Figma screen, contract below is exact and tested.
-- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§5) so nothing is forgotten; full contract lands here once its turn comes.
+- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§6) so nothing is forgotten; full contract lands here once its turn comes.
 
 ---
 
@@ -67,7 +67,7 @@ Every non-2xx response has this shape:
 - **`message_en`** / **`message_ar`** are ready-to-display text, generated server-side. Pick one by the phone's system language — no client-side translation table needed. **Caveat: the Arabic text is a first-pass machine draft, not yet reviewed by a native speaker** — expect it to be swapped for reviewed copy later; the `code` and the response shape itself will not change when that happens.
 - **`params`** gives structured detail for the few codes that carry it (e.g. `{"field": "name"}` for a missing-field validation error) — not meant to be interpolated into the message text.
 
-Full error code reference: §6 below.
+Full error code reference: §7 below.
 
 ### 3.2 Action-confirmation response shape
 
@@ -154,7 +154,58 @@ Creates the account, its Base Plan, and default settings in one step. `name` is 
 
 ---
 
-## 5. Full endpoint index (status of every endpoint that exists)
+## 5. Current Cash Balance ✅ Verified
+
+**Figma screens:** Onboarding 2 (initial balance entry), Settings → Current Cash Balance / B3 (later edits).
+
+### `PUT /me/balance`
+
+**The only endpoint that ever writes the Current Cash Balance** — same one for the very first entry during onboarding and every later edit. There is no separate "set once" call; `PUT` (not `POST`) because it's a full replace of both fields together, not a partial patch. It always requires auth, so it's called *after* `POST /auth/register` has already returned a token pair — onboarding's balance step is not part of registration itself.
+
+Changing it re-anchors every plan's forecast (the whole point of the Current Cash Balance being separate from any transaction), so the client should treat this as a deliberate, confirmed action, not something that saves as-you-type.
+
+**Request:**
+```json
+{
+  "current_balance_minor": 4500000,
+  "balance_as_of": "2026-09-10"
+}
+```
+(`4500000` = 45,000.00 in a 2-decimal currency like SAR — minor units, same convention as every other amount in the API.)
+
+**Success — `200 OK`:** returns the full `MeOut` shape (same as `GET /me`), so the client can refresh its whole picture from one response:
+```json
+{
+  "id": "ad9c60cb-...",
+  "email": "user@example.com",
+  "created_at": "2026-09-16T16:15:56.495134+05:00",
+  "settings": {
+    "display_name": "Nabeel Ahmed",
+    "currency_code": "SAR",
+    "locale": "en",
+    "current_balance_minor": 4500000,
+    "balance_as_of": "2026-09-10"
+  }
+}
+```
+
+**Errors:**
+
+| `code` | HTTP | When |
+|---|---|---|
+| `balance.negative_not_allowed` | 422 | `current_balance_minor < 0` — zero is fine, negative (overdraft/debt) is rejected |
+| `balance.as_of_in_future` | 422 | `balance_as_of` is later than today |
+| `balance.as_of_too_old` | 422 | `balance_as_of` is more than **5 years** in the past |
+| `validation.required` | 422 | Either field missing |
+| `auth.token_invalid` / `auth.token_expired` | 401 | Missing/expired/invalid access token |
+
+**Defaults at registration:** a brand-new account starts at `current_balance_minor: 0`, `balance_as_of: <today>` — set automatically by `POST /auth/register`, before the user ever calls this endpoint. So `GET /me` right after signup already returns valid (if placeholder) balance fields; the onboarding balance screen's job is to overwrite that placeholder with the user's real figure, not to create it from nothing.
+
+**Numeric input note for the client:** since negative values are now rejected server-side, the amount field can safely be a plain non-negative numeric input (no minus-sign affordance needed).
+
+---
+
+## 6. Full endpoint index (status of every endpoint that exists)
 
 Detailed contracts for these land above (or in their own section) once their Figma screen is walked through. Method/path/purpose here is accurate and already fully built+tested server-side — see `backend-plan/08-api-endpoints-plan.md` for the internal version of this same table if you need something ahead of its screen's turn.
 
@@ -164,9 +215,9 @@ Detailed contracts for these land above (or in their own section) once their Fig
 | Auth | `POST /auth/login` | ✅ §4 |
 | Auth | `POST /auth/refresh` | ✅ §4 |
 | Auth | `POST /auth/logout` | ✅ §4 |
-| Me / Settings | `GET /me` | ⏳ |
+| Me / Settings | `GET /me` | ✅ §5 |
 | Me / Settings | `PATCH /me/settings` | ⏳ |
-| Me / Settings | `PUT /me/balance` | ⏳ |
+| Me / Settings | `PUT /me/balance` | ✅ §5 |
 | Me / Settings | `PATCH /me/password` | ⏳ |
 | Me / Settings | `DELETE /me` | ⏳ |
 | Categories | `GET /categories` | ⏳ |
@@ -196,7 +247,7 @@ Detailed contracts for these land above (or in their own section) once their Fig
 
 ---
 
-## 6. Error code reference (all codes, every endpoint)
+## 7. Error code reference (all codes, every endpoint)
 
 Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — this table exists for the `code` values themselves, to branch client logic on.
 
@@ -210,6 +261,7 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 | `auth.current_password_incorrect` | 422 | `PATCH /me/password`'s current-password check failed |
 | `balance.as_of_in_future` | 422 | `PUT /me/balance`'s as-of date is later than today |
 | `balance.as_of_too_old` | 422 | `PUT /me/balance`'s as-of date is more than 5 years ago |
+| `balance.negative_not_allowed` | 422 | `PUT /me/balance`'s amount is negative |
 | `validation.required` | 422 | A required field is missing (`params.field` names it) |
 | `validation.invalid` | 422 | Generic field validation failure |
 | `transaction.amount_not_positive` | 422 | Amount is zero or negative |
@@ -234,7 +286,7 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 
 ---
 
-## 7. Open items that affect integration
+## 8. Open items that affect integration
 
 - **Arabic text is unreviewed** (§3.1) — display it, but expect it to be replaced with native-speaker-reviewed copy later without any contract change.
 - **No forgot/reset-password-via-email in this phase** — a user who forgets their password has no self-service recovery until Phase 2; the only password change path is `PATCH /me/password` while logged in (requires the current password). Design the Login screen's "forgot password?" affordance accordingly — either omit it for now or show it as "coming soon."

@@ -50,6 +50,9 @@ class SettingsService:
         balance_as_of (D-04, architecture §9.1) -- backing PUT /me/balance,
         deliberately kept off SettingsService.patch() and its endpoint.
         No other code path in the app calls this."""
+        if current_balance_minor < 0:
+            raise APIError("balance.negative_not_allowed", {"field": "current_balance_minor"})
+
         today = date.today()
         if balance_as_of > today:
             raise APIError("balance.as_of_in_future", {"field": "balance_as_of"})

@@ -115,6 +115,29 @@ def test_put_balance_rejects_an_as_of_date_in_the_future(client: TestClient) -> 
     assert resp.json()["error"]["code"] == "balance.as_of_in_future"
 
 
+def test_put_balance_rejects_a_negative_amount(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="negativebalance@example.com")
+
+    resp = client.put(
+        "/v1/me/balance",
+        headers=headers,
+        json={"current_balance_minor": -100, "balance_as_of": date.today().isoformat()},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "balance.negative_not_allowed"
+
+
+def test_put_balance_accepts_zero(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="zerobalance@example.com")
+
+    resp = client.put(
+        "/v1/me/balance",
+        headers=headers,
+        json={"current_balance_minor": 0, "balance_as_of": date.today().isoformat()},
+    )
+    assert resp.status_code == 200
+
+
 def test_put_balance_rejects_an_as_of_date_beyond_the_backstop(client: TestClient) -> None:
     headers = _register_and_auth_headers(client, email="ancient@example.com")
     too_old = (date.today() - timedelta(days=365 * 6)).isoformat()

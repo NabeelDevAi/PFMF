@@ -19,7 +19,7 @@ All routes below sit under `/v1` and (except the ones marked public) require a v
 |---|---|---|
 | `GET /me` | Current user's identity/profile basics | — |
 | `PATCH /me/settings` | Update currency, locale, display name — **not** the Current Cash Balance (see below) | `validation.*` |
-| `PUT /me/balance` | The *only* write path for the Current Cash Balance + its as-of date (D-04, architecture §9.1) | `balance.as_of_in_future`, `balance.as_of_too_old` |
+| `PUT /me/balance` | The *only* write path for the Current Cash Balance + its as-of date (D-04, architecture §9.1). Same endpoint for both the initial onboarding entry and any later edit (Settings → F5/B3) — there's no separate "set once" call. | `balance.as_of_in_future`, `balance.as_of_too_old`, `balance.negative_not_allowed` |
 | `PATCH /me/password` | The *only* way to change a password in Phase 1 — no forgot/reset-password-via-email flow (see `09-auth-and-security.md` §5). Requires the current password re-entered plus the new one; revokes every other session | `auth.current_password_incorrect`, `auth.weak_password` |
 | `DELETE /me` | Permanent account deletion (screen-flow F9), distinct from `/me/data` reset below. Not in the architecture doc's locked §9 list — built as a small addition, see `12-open-questions-and-future-hardening.md` §3 | — |
 
