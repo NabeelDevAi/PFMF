@@ -305,14 +305,49 @@ def test_compare_base_against_derived_scenario_drivers_and_deltas(client: TestCl
     assert (
         drivers_by_name["Rent"]["total_contribution_minor"] == -50000 * 12
     )  # 50000/mo more expense
+    assert drivers_by_name["Rent"]["active_months"] == 12  # present the whole horizon
     assert drivers_by_name["Mortgage"]["change"] == "added"
     assert drivers_by_name["Mortgage"]["direction"] == "expense"
+    assert drivers_by_name["Mortgage"]["active_months"] == 12
 
     total_contribution = sum(d["total_contribution_minor"] for d in body["drivers"])
     actual_delta = (
         body["b"]["totals"]["closing_balance_minor"] - body["a"]["totals"]["closing_balance_minor"]
     )
     assert total_contribution == actual_delta
+
+
+def test_compare_driver_active_months_reflects_a_mid_horizon_start(client: TestClient) -> None:
+    """A client computes a driver's real "$X/mo" as
+    total_contribution_minor / active_months -- never / horizon_months,
+    which would dilute anything that doesn't span the whole comparison
+    window (e.g. an item added partway through)."""
+    headers = _auth_headers(client, email="cmpmonths@example.com")
+    base_id = _base_id(client, headers)
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    client.post(
+        f"/v1/scenarios/{plan['id']}/transactions",
+        headers=headers,
+        json={
+            "name": "Mortgage",
+            "amount_minor": 90000,
+            "direction": "expense",
+            "recurrence": "monthly",
+            "start_date": "2026-03-01",  # 2 months into a 6-month horizon
+        },
+    )
+
+    resp = client.get(
+        "/v1/forecast/compare",
+        headers=headers,
+        params={"a": base_id, "b": plan["id"], "horizon": 6, "anchor": "2026-01"},
+    )
+    assert resp.status_code == 200
+    mortgage = next(d for d in resp.json()["drivers"] if d["name"] == "Mortgage")
+
+    assert mortgage["active_months"] == 4  # Mar/Apr/May/Jun -- not the full 6-month horizon
+    assert mortgage["total_contribution_minor"] == -90000 * 4
+    assert mortgage["total_contribution_minor"] / mortgage["active_months"] == -90000
 
 
 def test_compare_percentage_is_none_when_baseline_month_is_zero(client: TestClient) -> None:

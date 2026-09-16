@@ -97,6 +97,7 @@ class DriverOut(BaseModel):
     base_total_minor: int
     scenario_total_minor: int
     total_contribution_minor: int
+    active_months: int
 
 
 class CompareOut(BaseModel):
@@ -125,6 +126,7 @@ class CompareOut(BaseModel):
                 base_total_minor=d.base_total_minor,
                 scenario_total_minor=d.scenario_total_minor,
                 total_contribution_minor=d.total_contribution_minor,
+                active_months=d.active_months,
             )
             for d in result.comparison.drivers
         ]

@@ -6,7 +6,7 @@ For the full endpoint index (every endpoint that exists, whether or not it's bee
 
 **Status legend:**
 - ✅ **Verified** — walked through against a specific Figma screen, contract below is exact and tested.
-- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§10) so nothing is forgotten; full contract lands here once its turn comes.
+- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§11) so nothing is forgotten; full contract lands here once its turn comes.
 
 ---
 
@@ -67,7 +67,7 @@ Every non-2xx response has this shape:
 - **`message_en`** / **`message_ar`** are ready-to-display text, generated server-side. Pick one by the phone's system language — no client-side translation table needed. **Caveat: the Arabic text is a first-pass machine draft, not yet reviewed by a native speaker** — expect it to be swapped for reviewed copy later; the `code` and the response shape itself will not change when that happens.
 - **`params`** gives structured detail for the few codes that carry it (e.g. `{"field": "name"}` for a missing-field validation error) — not meant to be interpolated into the message text.
 
-Full error code reference: §11 below.
+Full error code reference: §12 below.
 
 ### 3.2 Action-confirmation response shape
 
@@ -431,7 +431,52 @@ Note: this section only verifies the specific fields above for this exact purpos
 
 ---
 
-## 10. Full endpoint index (status of every endpoint that exists)
+## 10. Compare plans ✅ Verified
+
+**Figma screens:** Compare plans (picker), Compare results.
+
+### 10.1 The picker's per-plan "+SAR X/mo" preview
+
+Shown next to each non-Base plan before you've even picked which two to compare (Base's row shows "Your real numbers" instead — nothing to compute there). **This is not a comparison at all** — it's that plan's own standalone average monthly cash flow, independent of Base: call `GET /scenarios/{id}/forecast?horizon=` (whatever the currently-selected horizon pill is) for each plan shown, and divide `totals.net_minor / horizon_months`. Verified live: sign and magnitude behave exactly as expected for a plan whose own income comfortably exceeds its own expenses.
+
+### 10.2 Running the comparison — `GET /forecast/compare?a=&b=&horizon=&anchor=`
+
+- `a`, `b` — the two plan ids ("Pick exactly two plans"). Order doesn't matter for validation, but the response's `a`/`b` keys mirror whichever you passed — keep Plan A/Plan B on the client side consistent with which id went where.
+- `horizon` — the four pills map directly: 1Y→`12`, 3Y→`36`, 5Y→`60`, 10Y→`120`.
+- `anchor` — omit it; defaults to the user's `balance_as_of` month, identically for both sides (already covered by D-14 — there's no reason for this screen to ever pass one explicitly).
+
+**Errors:** `compare.same_scenario` (422, A and B are the same plan — enforce "pick two *different* plans" client-side too, for instant feedback), `scenario.archived` (409, either operand is archived — archived plans should already be excluded from this picker's list, e.g. by calling `GET /scenarios` without `include_archived`), `forecast.invalid_horizon` (422), `resource.not_found`.
+
+### 10.3 "Compare results" — mapping the response to the screen
+
+| Screen element | Field |
+|---|---|
+| Plan A name/balance (solid line legend) | `a.scenario_id` (look up the name client-side) / `a.totals.closing_balance_minor` |
+| Plan B name/balance (dashed line legend) | `b.scenario_id` / `b.totals.closing_balance_minor` |
+| "Difference at 10 years" amount | `deltas[-1].closing_balance_delta_minor` |
+| "Difference at 10 years" percentage | `deltas[-1].closing_balance_delta_pct` — **can be `null`** ("baseline is 0" case); render "—", never `0%` or an error |
+| Chart, solid line | `a.months[].closing_balance_minor`, in order |
+| Chart, dashed line | `b.months[].closing_balance_minor`, in order |
+| "Month by month" table | `a.months[]`/`b.months[]` (or `deltas[]` for the DIFF column) — pick whichever rows you want to show (e.g. every 12th for a yearly table); the full monthly array is always there, this screen just doesn't render every row |
+
+### 10.4 "What's driving this" — the `drivers` list
+
+Already ranked by impact server-side (largest absolute contribution first) — render in the order given, no client-side sorting needed.
+
+| Screen element | Field |
+|---|---|
+| Row order | Already sorted by `abs(total_contribution_minor)` descending |
+| Item name | `name` |
+| Badge | `change` — `"modified"` → **Modified**, `"added"` → **Only in this plan**, `"removed"` → **Removed** |
+| "$X/mo" figure, color | `total_contribution_minor / active_months` — **not** `/ horizon_months`. Negative → red (this plan is worse off because of this item), positive → green. |
+
+**Why `active_months`, not `horizon_months`:** a driver's `total_contribution_minor` is summed over however many months it actually occurred in — for a mortgage added 2 months into a 120-month comparison, that's 118 months, not 120. Dividing by the full horizon dilutes the figure (this exact case showed SAR 8,850/mo instead of its real SAR 9,000/mo before this was fixed). `active_months` is the divisor that gives the item's true, steady per-occurrence rate. Verified live with exactly this scenario.
+
+**Errors on this response:** same as §10.2 (this is one call, not two — `drivers` and `deltas` both come back together with `a`/`b`).
+
+---
+
+## 11. Full endpoint index (status of every endpoint that exists)
 
 Detailed contracts for these land above (or in their own section) once their Figma screen is walked through. Method/path/purpose here is accurate and already fully built+tested server-side — see `backend-plan/08-api-endpoints-plan.md` for the internal version of this same table if you need something ahead of its screen's turn.
 
@@ -466,14 +511,14 @@ Detailed contracts for these land above (or in their own section) once their Fig
 | Overlays | `POST /scenarios/{id}/overlays` | ✅ §8 |
 | Overlays | `PATCH /scenarios/{id}/overlays/{ovid}` | ✅ §8 |
 | Overlays | `DELETE /scenarios/{id}/overlays/{ovid}` | ✅ §8 |
-| Forecast & Compare | `GET /scenarios/{id}/forecast?horizon=&anchor=` | ⏳ |
-| Forecast & Compare | `GET /forecast/compare?a=&b=&horizon=&anchor=` | ⏳ |
+| Forecast & Compare | `GET /scenarios/{id}/forecast?horizon=&anchor=` | ⏳ (fields used so far confirmed via §9.6/§10.1) |
+| Forecast & Compare | `GET /forecast/compare?a=&b=&horizon=&anchor=` | ✅ §10 |
 | Account data | `DELETE /me/data` | ⏳ |
 | Account data | `GET /me/export?format=` | ⏳ |
 
 ---
 
-## 11. Error code reference (all codes, every endpoint)
+## 12. Error code reference (all codes, every endpoint)
 
 Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — this table exists for the `code` values themselves, to branch client logic on.
 
@@ -512,7 +557,7 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 
 ---
 
-## 12. Open items that affect integration
+## 13. Open items that affect integration
 
 - **Arabic text is unreviewed** (§3.1) — display it, but expect it to be replaced with native-speaker-reviewed copy later without any contract change.
 - **No forgot/reset-password-via-email in this phase** — a user who forgets their password has no self-service recovery until Phase 2; the only password change path is `PATCH /me/password` while logged in (requires the current password). Design the Login screen's "forgot password?" affordance accordingly — either omit it for now or show it as "coming soon."

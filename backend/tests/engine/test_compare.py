@@ -50,6 +50,30 @@ def test_driver_added_removed_modified_classification() -> None:
     assert len(result.drivers) == 3  # nothing unchanged to drop, nothing extra
 
 
+def test_driver_active_months_is_when_it_actually_occurs_not_the_full_horizon() -> None:
+    """A driver's `active_months` is what a client divides
+    total_contribution_minor by to get the item's real, undiluted
+    monthly rate -- not horizon_months, which would understate anything
+    that doesn't span the whole comparison window."""
+    base_txns = [txn("rent", "Rent", 300000, "expense", "monthly", "2026-01-01")]
+    scenario_txns = [
+        txn("rent", "Rent", 300000, "expense", "monthly", "2026-01-01"),  # unchanged
+        # Starts month 3 of a 6-month horizon: active in Mar/Apr/May/Jun only.
+        txn("mortgage", "Mortgage", 90000, "expense", "monthly", "2026-03-01"),
+    ]
+
+    result = compare(_forecast(base_txns), _forecast(scenario_txns))
+    by_id = {d.source_id: d for d in result.drivers}
+
+    mortgage = by_id["mortgage"]
+    assert mortgage.change is DriverChange.ADDED
+    assert mortgage.active_months == 4  # not HORIZON (6)
+    assert mortgage.total_contribution_minor == -90000 * 4
+    # The undiluted rate a client should show ("$X/mo") is exactly the
+    # per-occurrence amount, not a horizon-diluted average.
+    assert mortgage.total_contribution_minor / mortgage.active_months == -90000
+
+
 def test_unchanged_transaction_is_dropped_from_drivers() -> None:
     shared = [txn("rent", "Rent", 300000, "expense", "monthly", "2026-01-01")]
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from .models import Comparison, Driver, Ledger, MonthDelta, Occurrence
-from .types import DriverChange, Minor
+from .types import DriverChange, Minor, YearMonth
 
 
 def compare(a: Ledger, b: Ledger) -> Comparison:
@@ -67,7 +67,9 @@ def _drivers(a: Ledger, b: Ledger) -> tuple[Driver, ...]:
         else:
             change = DriverChange.MODIFIED
 
-        sample = (b_occs or a_occs)[0]  # prefer B's name/direction; direction is immutable anyway
+        preferred = b_occs or a_occs  # prefer B; direction is immutable anyway
+        sample = preferred[0]
+        active_months = len({YearMonth.from_date(o.on) for o in preferred})
         out.append(
             Driver(
                 source_id=source_id,
@@ -77,6 +79,7 @@ def _drivers(a: Ledger, b: Ledger) -> tuple[Driver, ...]:
                 base_total_minor=sum(o.amount_minor for o in a_occs),
                 scenario_total_minor=sum(o.amount_minor for o in b_occs),
                 total_contribution_minor=contribution,
+                active_months=active_months,
             )
         )
 

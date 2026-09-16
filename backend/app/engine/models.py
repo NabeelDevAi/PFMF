@@ -93,6 +93,12 @@ class Driver:
     base_total_minor: Minor  # magnitude: sum of amount_minor in ledger A (0 if absent)
     scenario_total_minor: Minor  # magnitude: sum of amount_minor in ledger B (0 if absent)
     total_contribution_minor: Minor  # signed delta to the closing balance
+    active_months: int  # distinct months this source occurs in (whichever side has it --
+    # B preferred, matching `name`/`direction`'s own preference below). Lets a client compute
+    # this driver's real per-occurrence rate (total_contribution_minor / active_months) instead
+    # of diluting it across the whole horizon, which understates anything that starts, ends, or
+    # was added/removed partway through -- e.g. a mortgage added 2 months into a 120-month
+    # horizon would otherwise show as ~2% smaller per month than its real, steady cost.
 
 
 @dataclass(frozen=True)
