@@ -53,7 +53,7 @@ Built as a small addition beyond the architecture doc's locked §9 surface (see 
 
 | Endpoint | Purpose | Key error codes |
 |---|---|---|
-| `GET /scenarios/{id}/transactions` | The **resolved** view of a scenario — every row carries `origin` (own/inherited/overridden/added), which is exactly what the UI's badge system renders from | `resource.not_found` |
+| `GET /scenarios/{id}/transactions?filter=` | The **resolved** view of a scenario — every row carries `origin` (own/inherited/overridden/added/**excluded**), which is exactly what the UI's badge system renders from. `filter` is `active` (default, unchanged original behavior), `removed` (only excluded rows — always empty on Base), or `all` (both). Every overridden/excluded row carries `overlay_id`, so the client can call the overlay endpoints on a row it's looking at without a separate lookup. | `resource.not_found`, `validation.invalid` (bad `filter`) |
 | `POST /scenarios/{id}/transactions` | Create a transaction local to this scenario (`origin = added`) | `transaction.*`, `validation.*` |
 | `PATCH /transactions/{id}` | Edit a transaction the caller owns directly (i.e. `origin = own` in Base, or `origin = added` in a derived scenario) | `transaction.direction_immutable`, `transaction.end_before_start`, `transaction.one_time_has_end_date`, `resource.not_found` |
 | `DELETE /transactions/{id}` | Delete a transaction the caller owns directly | `resource.not_found` |

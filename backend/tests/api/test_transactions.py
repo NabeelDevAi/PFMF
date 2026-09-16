@@ -50,6 +50,7 @@ def test_create_and_list_transaction(client: TestClient) -> None:
     body = created.json()
     assert body["name"] == "Rent"
     assert body["origin"] == "own"  # Base's own transaction
+    assert body["overlay_id"] is None  # no overlay -- this row isn't one
 
     listed = client.get(f"/v1/scenarios/{scenario_id}/transactions", headers=headers).json()[
         "items"
@@ -63,6 +64,7 @@ def test_added_transaction_in_non_base_scenario_has_added_origin(client: TestCli
     plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
     created = _create_txn(client, headers, plan["id"], name="Mortgage")
     assert created["origin"] == "added"
+    assert created["overlay_id"] is None  # no overlay -- this row isn't one
 
 
 def test_amount_not_positive_is_rejected(client: TestClient) -> None:

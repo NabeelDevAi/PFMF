@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from app.domain.enums import Direction, Origin, Recurrence
 
 if TYPE_CHECKING:
-    from app.services.scenario_resolver import ResolvedRow
+    from app.services.scenario_resolver import ExcludedRow, ResolvedRow
 
 
 class TransactionOut(BaseModel):
@@ -24,6 +24,7 @@ class TransactionOut(BaseModel):
     start_date: date
     end_date: date | None
     origin: Origin
+    overlay_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
 
@@ -31,7 +32,8 @@ class TransactionOut(BaseModel):
     def from_row(cls, txn, origin: Origin) -> TransactionOut:
         """`txn` is the ORM row; `origin` is computed separately (never
         stored -- see Origin's docstring), so this can't be a plain
-        from_attributes model_validate(txn)."""
+        from_attributes model_validate(txn). Always OWN or ADDED here --
+        a transaction created/edited directly never has an overlay."""
         return cls(
             id=txn.id,
             scenario_id=txn.scenario_id,
@@ -44,6 +46,7 @@ class TransactionOut(BaseModel):
             start_date=txn.start_date,
             end_date=txn.end_date,
             origin=origin,
+            overlay_id=None,
             created_at=txn.created_at,
             updated_at=txn.updated_at,
         )
@@ -68,6 +71,31 @@ class TransactionOut(BaseModel):
             start_date=r.start_date,
             end_date=r.end_date,
             origin=Origin(r.origin.value),
+            overlay_id=row.overlay_id,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+    @classmethod
+    def from_excluded(cls, row: ExcludedRow) -> TransactionOut:
+        """A "removed from this plan" row -- always Base's own values
+        verbatim (see ExcludedRow's docstring), tagged Origin.EXCLUDED.
+        overlay_id is what the client calls DELETE .../overlays/{id} on
+        to restore it (un-exclude), the same route used for any other
+        overlay removal."""
+        return cls(
+            id=row.id,
+            scenario_id=row.scenario_id,
+            name=row.name,
+            amount_minor=row.amount_minor,
+            direction=row.direction,
+            category_id=row.category_id,
+            notes=row.notes,
+            recurrence=row.recurrence,
+            start_date=row.start_date,
+            end_date=row.end_date,
+            origin=Origin.EXCLUDED,
+            overlay_id=row.overlay_id,
             created_at=row.created_at,
             updated_at=row.updated_at,
         )

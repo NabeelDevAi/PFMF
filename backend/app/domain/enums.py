@@ -36,12 +36,18 @@ class OverlayOp(StrEnum):
 class Origin(StrEnum):
     """How a transaction relates to Base in a resolved scenario view
     (architecture §6, §9.2). Never stored -- computed at read time by
-    ScenarioResolver."""
+    ScenarioResolver.
+
+    EXCLUDED has no engine-side counterpart (app.engine.types.Origin) --
+    an excluded row is never fed to the engine at all, so it only exists
+    at this API/domain layer, for the "removed from this plan" view
+    (GET .../transactions?filter=removed|all)."""
 
     OWN = "own"
     INHERITED = "inherited"
     OVERRIDDEN = "overridden"
     ADDED = "added"
+    EXCLUDED = "excluded"
 
 
 class DriverChange(StrEnum):

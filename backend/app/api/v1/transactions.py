@@ -14,8 +14,9 @@ row in that table at all.
 from __future__ import annotations
 
 import uuid
+from typing import Literal
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -40,11 +41,31 @@ transactions_router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 @scenario_transactions_router.get("/{scenario_id}/transactions", response_model=TransactionListOut)
 def list_transactions(
-    scenario_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    scenario_id: uuid.UUID,
+    filter: Literal["active", "removed", "all"] = Query("active"),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> TransactionListOut:
+    """`filter` (default "active", identical to this endpoint's original,
+    only behavior): "active" is exactly what's currently in effect for
+    this plan (own/inherited/overridden/added) -- never includes an
+    excluded row. "removed" is only the rows excluded from this plan
+    (empty for Base, which can't exclude anything). "all" is both lists
+    together. Every excluded row carries overlay_id, which is what
+    restores it via DELETE .../overlays/{overlay_id}."""
     scenario = ScenarioService(db).get(user.id, scenario_id)
-    rows = ScenarioResolver(db).resolve_for_api(user.id, scenario)
-    return TransactionListOut(items=[TransactionOut.from_resolved(row) for row in rows])
+    resolver = ScenarioResolver(db)
+    items: list[TransactionOut] = []
+    if filter in ("active", "all"):
+        items.extend(
+            TransactionOut.from_resolved(row) for row in resolver.resolve_for_api(user.id, scenario)
+        )
+    if filter in ("removed", "all"):
+        items.extend(
+            TransactionOut.from_excluded(row)
+            for row in resolver.resolve_excluded_for_api(user.id, scenario)
+        )
+    return TransactionListOut(items=items)
 
 
 @scenario_transactions_router.post(

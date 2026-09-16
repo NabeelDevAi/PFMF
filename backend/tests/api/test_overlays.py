@@ -75,6 +75,7 @@ def test_override_overlay_patches_resolved_values(client: TestClient) -> None:
         json={"base_transaction_id": rent["id"], "op": "override", "ovr_amount_minor": 350000},
     )
     assert resp.status_code == 201
+    overlay_id = resp.json()["id"]
 
     resolved = _resolved(client, headers, plan["id"])
     assert len(resolved) == 1
@@ -82,6 +83,10 @@ def test_override_overlay_patches_resolved_values(client: TestClient) -> None:
     assert resolved[0]["name"] == "Rent"  # untouched
     assert resolved[0]["origin"] == "overridden"
     assert resolved[0]["id"] == rent["id"]  # resolved identity is Base's transaction id
+    # The client needs this to PATCH/DELETE .../overlays/{overlay_id} on a
+    # row it's already looking at, without having to remember an id it
+    # only ever saw once, back when the overlay was first created.
+    assert resolved[0]["overlay_id"] == overlay_id
 
     # Base itself is unaffected.
     base_resolved = _resolved(client, headers, base_id)
@@ -259,6 +264,99 @@ def test_delete_exclude_overlay_undoes_the_exclusion(client: TestClient) -> None
     resolved = _resolved(client, headers, plan["id"])
     assert len(resolved) == 1
     assert resolved[0]["origin"] == "inherited"
+
+
+def test_removed_filter_shows_only_excluded_rows_with_overlay_id(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    base_id = _base_id(client, headers)
+    rent = _add_base_transaction(client, headers, base_id, name="Rent")
+    groceries = _add_base_transaction(client, headers, base_id, name="Groceries")
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+
+    excluded = client.post(
+        f"/v1/scenarios/{plan['id']}/overlays",
+        headers=headers,
+        json={"base_transaction_id": rent["id"], "op": "exclude"},
+    ).json()
+
+    removed = client.get(
+        f"/v1/scenarios/{plan['id']}/transactions",
+        headers=headers,
+        params={"filter": "removed"},
+    ).json()["items"]
+    assert len(removed) == 1
+    assert removed[0]["id"] == rent["id"]
+    assert removed[0]["name"] == "Rent"
+    assert removed[0]["origin"] == "excluded"
+    assert removed[0]["overlay_id"] == excluded["id"]
+
+    # Groceries was never excluded -- it's active, not removed, and
+    # shouldn't appear here at all.
+    assert groceries["id"] not in {row["id"] for row in removed}
+
+    # The default (and explicit "active") view still hides it entirely.
+    active = _resolved(client, headers, plan["id"])
+    assert rent["id"] not in {row["id"] for row in active}
+    explicit_active = client.get(
+        f"/v1/scenarios/{plan['id']}/transactions",
+        headers=headers,
+        params={"filter": "active"},
+    ).json()["items"]
+    assert rent["id"] not in {row["id"] for row in explicit_active}
+
+
+def test_all_filter_combines_active_and_removed_rows(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    base_id = _base_id(client, headers)
+    rent = _add_base_transaction(client, headers, base_id, name="Rent")
+    groceries = _add_base_transaction(client, headers, base_id, name="Groceries")
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+
+    client.post(
+        f"/v1/scenarios/{plan['id']}/overlays",
+        headers=headers,
+        json={"base_transaction_id": rent["id"], "op": "exclude"},
+    )
+
+    everything = client.get(
+        f"/v1/scenarios/{plan['id']}/transactions", headers=headers, params={"filter": "all"}
+    ).json()["items"]
+    by_id = {row["id"]: row for row in everything}
+    assert len(everything) == 2
+    assert by_id[rent["id"]]["origin"] == "excluded"
+    assert by_id[groceries["id"]]["origin"] == "inherited"
+    assert by_id[groceries["id"]]["overlay_id"] is None  # no overlay on this row
+
+
+def test_base_plan_ignores_removed_and_all_filters(client: TestClient) -> None:
+    """Base can't exclude anything -- exclusion is a derived-scenario-only
+    concept -- so every filter value behaves identically there."""
+    headers = _auth_headers(client)
+    base_id = _base_id(client, headers)
+    _add_base_transaction(client, headers, base_id)
+
+    for filter_value in ("active", "removed", "all"):
+        items = client.get(
+            f"/v1/scenarios/{base_id}/transactions",
+            headers=headers,
+            params={"filter": filter_value},
+        ).json()["items"]
+        if filter_value == "removed":
+            assert items == []
+        else:
+            assert len(items) == 1
+            assert items[0]["origin"] == "own"
+
+
+def test_invalid_filter_value_is_rejected(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    base_id = _base_id(client, headers)
+
+    resp = client.get(
+        f"/v1/scenarios/{base_id}/transactions", headers=headers, params={"filter": "bogus"}
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "validation.invalid"
 
 
 def test_overlay_not_found_for_another_user_returns_404(client: TestClient) -> None:

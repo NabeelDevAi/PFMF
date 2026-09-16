@@ -6,7 +6,7 @@ For the full endpoint index (every endpoint that exists, whether or not it's bee
 
 **Status legend:**
 - ✅ **Verified** — walked through against a specific Figma screen, contract below is exact and tested.
-- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§7) so nothing is forgotten; full contract lands here once its turn comes.
+- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§8) so nothing is forgotten; full contract lands here once its turn comes.
 
 ---
 
@@ -67,7 +67,7 @@ Every non-2xx response has this shape:
 - **`message_en`** / **`message_ar`** are ready-to-display text, generated server-side. Pick one by the phone's system language — no client-side translation table needed. **Caveat: the Arabic text is a first-pass machine draft, not yet reviewed by a native speaker** — expect it to be swapped for reviewed copy later; the `code` and the response shape itself will not change when that happens.
 - **`params`** gives structured detail for the few codes that carry it (e.g. `{"field": "name"}` for a missing-field validation error) — not meant to be interpolated into the message text.
 
-Full error code reference: §8 below.
+Full error code reference: §9 below.
 
 ### 3.2 Action-confirmation response shape
 
@@ -247,7 +247,71 @@ The schema also accepts an optional `current_balance_override_minor` (a per-plan
 
 ---
 
-## 7. Full endpoint index (status of every endpoint that exists)
+## 7. Transactions list, badges, and remove/restore ✅ Verified
+
+**Figma screens:** Transactions (all three variants — Base/derived plan, Expense/Income, and the filter behind the search bar's sliders icon).
+
+### `GET /scenarios/{id}/transactions?filter=`
+
+This is the **one and only** transactions-list endpoint, for every plan (Base or derived) and every filter state. There's no separate "removed items" endpoint.
+
+**Query param `filter`** — `"active"` (default), `"removed"`, or `"all"`:
+- **`active`** — everything currently in effect in this plan. This is what the "Active only" tab (and the plan screen's default load) should call. On the Base Plan this is simply every transaction it owns (`origin: "own"`). On a derived plan it's the inherited/overridden/added rows — never anything the user has removed.
+- **`removed`** — only the rows the user has removed from this plan (`origin: "excluded"`). **Always empty on the Base Plan** — Base can't remove anything, removal only exists relative to Base. Feed this to the "Removed only" tab.
+- **`all`** — active + removed together, in one call. Feed this to the "All" tab — no need to call twice and merge client-side.
+
+Nothing else about the request changes — same path, same auth, no body.
+
+**Response** (same `TransactionOut` shape regardless of `filter`):
+```json
+{
+  "items": [
+    {
+      "id": "8f490ab2-8ec7-4286-9c4a-0f844eeec382",
+      "scenario_id": "113c24b3-...",
+      "name": "Rent",
+      "amount_minor": 780000,
+      "direction": "expense",
+      "category_id": null,
+      "notes": null,
+      "recurrence": "monthly",
+      "start_date": "2026-01-01",
+      "end_date": null,
+      "origin": "overridden",
+      "overlay_id": "5dbd8431-5e0c-4266-85d9-0e5578bfc77c",
+      "created_at": "2026-09-16T17:01:05.297554+05:00",
+      "updated_at": "2026-09-16T17:01:05.297554+05:00"
+    }
+  ]
+}
+```
+
+**`origin` is exactly what drives every badge in these three screens:**
+
+| `origin` | Badge shown | Meaning |
+|---|---|---|
+| `own` | *(none)* | A Base Plan's own transaction — Base only ever has this origin |
+| `inherited` | `From Base` | Unmodified, inherited from Base |
+| `overridden` | `Modified` | A Base transaction, changed in this plan (amount/name/date/etc.) |
+| `added` | *(none — it's just this plan's own row)* | Created directly in this (derived) plan, not from Base |
+| `excluded` | *(shown only under `filter=removed`/`all`)* | Removed from this plan — the row still shows Base's original values, untouched |
+
+**`overlay_id`** — present (non-null) only for `overridden` and `excluded` rows; always `null` for `own`/`inherited`/`added`. This is the id to call the overlay endpoints with:
+- **Editing a `Modified` row further, or reverting it back to Base:** `PATCH`/`DELETE /scenarios/{id}/overlays/{overlay_id}`.
+- **Restoring a removed row** (the "Undo" action in the Buy a House screenshot, or a "Restore" button in the Removed-only tab): `DELETE /scenarios/{id}/overlays/{overlay_id}` — same endpoint as reverting an override; the overlay disappears and the row goes back to being `inherited`.
+- **A `Modified`/removed row's `overlay_id` is stable across reloads** — fetch it fresh from this same endpoint any time; don't rely on remembering the id from when the overlay was first created (`POST /scenarios/{id}/overlays`'s response also returns it, but that's only needed at the moment of creation).
+- **Creating** the override/exclude in the first place still goes through `POST /scenarios/{id}/overlays` with `base_transaction_id` (an `inherited` row's own `id` field) — that part doesn't change; see `08-api-endpoints-plan.md`'s Overlays section for that endpoint's full request shape once it gets its own screen turn.
+
+**Errors:**
+
+| `code` | HTTP | When |
+|---|---|---|
+| `validation.invalid` | 422 | `filter` isn't one of `active`/`removed`/`all` |
+| `resource.not_found` | 404 | Plan doesn't exist or belongs to another user |
+
+---
+
+## 8. Full endpoint index (status of every endpoint that exists)
 
 Detailed contracts for these land above (or in their own section) once their Figma screen is walked through. Method/path/purpose here is accurate and already fully built+tested server-side — see `backend-plan/08-api-endpoints-plan.md` for the internal version of this same table if you need something ahead of its screen's turn.
 
@@ -274,7 +338,7 @@ Detailed contracts for these land above (or in their own section) once their Fig
 | Plans | `POST /scenarios/{id}/duplicate` | ⏳ |
 | Plans | `POST /scenarios/{id}/archive` | ⏳ |
 | Plans | `POST /scenarios/{id}/unarchive` | ⏳ |
-| Transactions | `GET /scenarios/{id}/transactions` | ⏳ |
+| Transactions | `GET /scenarios/{id}/transactions?filter=` | ✅ §7 |
 | Transactions | `POST /scenarios/{id}/transactions` | ⏳ |
 | Transactions | `PATCH /transactions/{id}` | ⏳ |
 | Transactions | `DELETE /transactions/{id}` | ⏳ |
@@ -289,7 +353,7 @@ Detailed contracts for these land above (or in their own section) once their Fig
 
 ---
 
-## 8. Error code reference (all codes, every endpoint)
+## 9. Error code reference (all codes, every endpoint)
 
 Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — this table exists for the `code` values themselves, to branch client logic on.
 
@@ -328,7 +392,7 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 
 ---
 
-## 9. Open items that affect integration
+## 10. Open items that affect integration
 
 - **Arabic text is unreviewed** (§3.1) — display it, but expect it to be replaced with native-speaker-reviewed copy later without any contract change.
 - **No forgot/reset-password-via-email in this phase** — a user who forgets their password has no self-service recovery until Phase 2; the only password change path is `PATCH /me/password` while logged in (requires the current password). Design the Login screen's "forgot password?" affordance accordingly — either omit it for now or show it as "coming soon."
