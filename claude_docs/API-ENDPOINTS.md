@@ -6,7 +6,7 @@ For the full endpoint index (every endpoint that exists, whether or not it's bee
 
 **Status legend:**
 - ✅ **Verified** — walked through against a specific Figma screen, contract below is exact and tested.
-- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§14) so nothing is forgotten; full contract lands here once its turn comes.
+- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§15) so nothing is forgotten; full contract lands here once its turn comes.
 
 ---
 
@@ -67,7 +67,7 @@ Every non-2xx response has this shape:
 - **`message_en`** / **`message_ar`** are ready-to-display text, generated server-side. Pick one by the phone's system language — no client-side translation table needed. **Caveat: the Arabic text is a first-pass machine draft, not yet reviewed by a native speaker** — expect it to be swapped for reviewed copy later; the `code` and the response shape itself will not change when that happens.
 - **`params`** gives structured detail for the few codes that carry it (e.g. `{"field": "name"}` for a missing-field validation error) — not meant to be interpolated into the message text.
 
-Full error code reference: §15 below.
+Full error code reference: §16 below.
 
 ### 3.2 Action-confirmation response shape
 
@@ -542,7 +542,7 @@ Every row on this screen maps to something already covered elsewhere in this doc
 | **Currency** | — | **Frontend-only.** The currency list is a static client-side picker (§10.1 already covers `currency_code` itself — free-form, no server-side whitelist, by earlier explicit decision). Selecting one calls `PATCH /me/settings` with `currency_code` — no new contract. |
 | **Language** | — | **Frontend-only** in the same sense — which languages are offered is a client concern. Selecting one calls `PATCH /me/settings` with `locale` (`"en"`/`"ar"`) — already built, no new contract. This is also what the server uses to pick `message_en` vs. `message_ar` in every response (§3.1). |
 | **Opening balance** | §5 (`PUT /me/balance`) | Re-verified live for this screen: same endpoint as the initial onboarding entry, works identically from Settings. **Naming note, not a backend issue:** the mockup labels this "Opening balance," but the screen-flow spec's own signed rule (§10, "the one naming rule in the product with a signed rule behind it") is that this figure is always called **"Current Cash Balance"** in user-facing copy, specifically *not* "opening balance" — worth a look before this ships, though nothing here blocks backend work either way; the field is `current_balance_minor` regardless of what label the screen puts next to it. |
-| **Change password** | §15's `auth.current_password_incorrect`/`auth.weak_password` (endpoint: `PATCH /me/password`, built in the password-reset-removal work) | Re-verified live: succeeds with the right current password, old sessions revoked. |
+| **Change password** | §16's `auth.current_password_incorrect`/`auth.weak_password` (endpoint: `PATCH /me/password`, built in the password-reset-removal work) | Re-verified live: succeeds with the right current password, old sessions revoked. |
 | **Export data** | ⏳ (built, not yet given this screen's own detailed pass) | `GET /me/export?format=csv\|json` — re-verified live, both formats return correctly (`csv` → `application/zip`, `json` → `application/json`). Matches "available in two formats" exactly. |
 | **Reset data** | ⏳ (built, not yet given this screen's own detailed pass) | `DELETE /me/data` — re-verified live against this screen's exact description ("resets the account, deleting all plans and transactions and data, just keeping account info"): after reset, only the Base Plan remains (empty), every derived plan is gone, user-created categories are gone, balance resets to 0/today — but email, display name, avatar, currency, and locale are all untouched. |
 | **Delete account** | `backend-plan/12-open-questions-and-future-hardening.md` §9 item 9 (soft delete) | `DELETE /me` — re-verified live as a **soft delete**: looks and behaves like a hard delete to the app (can't log in, every token dead immediately, same email works again on a fresh signup right away), while the row and its data physically survive on the server for a Phase 2 purge job that doesn't exist yet. Nothing for the client to do differently than it would for an actual hard delete — same call, same response, same follow-up behavior (log out / return to Sign Up). |
@@ -599,7 +599,34 @@ GET /scenarios/{id}/forecast?horizon=1&anchor=2026-09&include_occurrences=true
 
 ---
 
-## 14. Full endpoint index (status of every endpoint that exists)
+## 14. Forecast screen ✅ Verified — zero new backend work
+
+**Figma screens:** Forecast (horizon pills, Balance/Income vs Exp/Net flow tabs, chart, Monthly breakdown table), Month breakdown sheet (tapping a month row).
+
+**Both screens are fully covered by what's already built — nothing new was added for this pass.** Every element maps directly onto `GET /scenarios/{id}/forecast`, the same endpoint (and the same `?include_occurrences=true` addition) already covered in §13.
+
+### 14.1 Forecast screen
+
+| Element | Source |
+|---|---|
+| Horizon pills 1Y / 3Y / 5Y / 10Y | `?horizon=12\|36\|60\|120` |
+| **Balance** / **Income vs Exp** / **Net flow** tabs | Three renderings of the *same* `months[]` array — `closing_balance_minor`, `income_minor`+`expense_minor`, and `net_minor` respectively. Switching tabs is a pure client-side re-render; it never needs a second request. |
+| Chart headline ("+SAR 9,043") | The current month's `net_minor` (find the row where `month == current_month`, both already in the payload) |
+| **Monthly breakdown table** (Month / Net / Closing) | `months[]` directly, one row per month — request the horizon that covers however many rows the table should scroll through (e.g. `horizon=120` for the 10Y pill gives all 120 rows in one call) |
+
+### 14.2 Month breakdown sheet ("Items contributing to this month")
+
+Tapping a row needs two things, both already available:
+
+- **The three summary chips** (Income / Expenses / Net this month) — the same month's `income_minor`/`expense_minor`/`net_minor` from `months[]`, no new call needed if you already fetched the range covering it.
+- **The itemized Income/Expenses list** — group that month's `occurrences` (§13.2's `?include_occurrences=true`) by `source_id`, summing `amount_minor` per group. **Verified live**, reproducing the sheet exactly: grouped Salary/Freelance Work summed to precisely that month's `income_minor`, and Rent/Car loan/Groceries/Utilities/Subscriptions/Dining out summed to precisely `expense_minor` — including **Groceries**, a weekly recurrence, correctly summing its 4–5 Saturday occurrences that fell inside the one selected month into a single row, exactly like the mockup's single "Groceries" line.
+- **The schedule caption under each item** ("Every month on the 1st," "Every week on Saturday") — `OccurrenceOut` deliberately doesn't carry this (§13.2); pull it from the already-fetched transaction list instead (`GET /scenarios/{id}/transactions`, §7) by matching `occurrences[].source_id` to a transaction's `id` — same value, since `source_id` *is* the underlying transaction's id. Avoids sending `recurrence`/`start_date` twice in two different payloads for the same fact.
+
+**Fetch strategy is a client choice, not a backend constraint** — either fetch once with a large horizon and `include_occurrences=true`, then filter by month client-side whenever a row is tapped (fewer requests, larger initial payload), or re-fetch narrowly (`horizon=1&anchor=<tapped month>&include_occurrences=true`) each time a sheet opens (more requests, each one small). Both work today with no backend difference.
+
+---
+
+## 15. Full endpoint index (status of every endpoint that exists)
 
 Detailed contracts for these land above (or in their own section) once their Figma screen is walked through. Method/path/purpose here is accurate and already fully built+tested server-side — see `backend-plan/08-api-endpoints-plan.md` for the internal version of this same table if you need something ahead of its screen's turn.
 
@@ -634,14 +661,14 @@ Detailed contracts for these land above (or in their own section) once their Fig
 | Overlays | `POST /scenarios/{id}/overlays` | ✅ §8 |
 | Overlays | `PATCH /scenarios/{id}/overlays/{ovid}` | ✅ §8 |
 | Overlays | `DELETE /scenarios/{id}/overlays/{ovid}` | ✅ §8 |
-| Forecast & Compare | `GET /scenarios/{id}/forecast?horizon=&anchor=&include_occurrences=` | ✅ §13 |
+| Forecast & Compare | `GET /scenarios/{id}/forecast?horizon=&anchor=&include_occurrences=` | ✅ §13/§14 |
 | Forecast & Compare | `GET /forecast/compare?a=&b=&horizon=&anchor=` | ✅ §10 |
 | Account data | `DELETE /me/data` | ✅ §12 |
 | Account data | `GET /me/export?format=` | ✅ §12 |
 
 ---
 
-## 15. Error code reference (all codes, every endpoint)
+## 16. Error code reference (all codes, every endpoint)
 
 Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — this table exists for the `code` values themselves, to branch client logic on.
 
@@ -682,7 +709,7 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 
 ---
 
-## 16. Open items that affect integration
+## 17. Open items that affect integration
 
 - **Arabic text is unreviewed** (§3.1) — display it, but expect it to be replaced with native-speaker-reviewed copy later without any contract change.
 - **No forgot/reset-password-via-email in this phase** — a user who forgets their password has no self-service recovery until Phase 2; the only password change path is `PATCH /me/password` while logged in (requires the current password). Design the Login screen's "forgot password?" affordance accordingly — either omit it for now or show it as "coming soon."
