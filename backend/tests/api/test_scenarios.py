@@ -35,6 +35,20 @@ def test_create_scenario(client: TestClient) -> None:
     assert body["current_balance_override_minor"] is None
 
 
+def test_create_scenario_rejects_a_blank_name(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": ""})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "validation.invalid"
+
+
+def test_create_scenario_rejects_a_whitespace_only_name(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": "   "})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "validation.invalid"
+
+
 def test_create_scenario_duplicate_name_is_conflict(client: TestClient) -> None:
     headers = _auth_headers(client)
     client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"})
@@ -173,6 +187,26 @@ def test_patch_scenario_unset_current_balance_override(client: TestClient) -> No
     )
     assert resp.status_code == 200
     assert resp.json()["current_balance_override_minor"] is None
+
+
+def test_patch_scenario_rejects_a_blank_name(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    created = client.post("/v1/scenarios", headers=headers, json={"name": "Draft"}).json()
+
+    resp = client.patch(f"/v1/scenarios/{created['id']}", headers=headers, json={"name": "   "})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "validation.invalid"
+
+
+def test_duplicate_scenario_rejects_a_blank_name(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    source = client.post("/v1/scenarios", headers=headers, json={"name": "Source"}).json()
+
+    resp = client.post(
+        f"/v1/scenarios/{source['id']}/duplicate", headers=headers, json={"name": "  "}
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "validation.invalid"
 
 
 def test_duplicate_scenario_copies_own_transactions_with_a_new_id(client: TestClient) -> None:

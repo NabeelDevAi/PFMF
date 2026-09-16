@@ -6,7 +6,7 @@ For the full endpoint index (every endpoint that exists, whether or not it's bee
 
 **Status legend:**
 - ✅ **Verified** — walked through against a specific Figma screen, contract below is exact and tested.
-- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§6) so nothing is forgotten; full contract lands here once its turn comes.
+- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§7) so nothing is forgotten; full contract lands here once its turn comes.
 
 ---
 
@@ -67,7 +67,7 @@ Every non-2xx response has this shape:
 - **`message_en`** / **`message_ar`** are ready-to-display text, generated server-side. Pick one by the phone's system language — no client-side translation table needed. **Caveat: the Arabic text is a first-pass machine draft, not yet reviewed by a native speaker** — expect it to be swapped for reviewed copy later; the `code` and the response shape itself will not change when that happens.
 - **`params`** gives structured detail for the few codes that carry it (e.g. `{"field": "name"}` for a missing-field validation error) — not meant to be interpolated into the message text.
 
-Full error code reference: §7 below.
+Full error code reference: §8 below.
 
 ### 3.2 Action-confirmation response shape
 
@@ -205,7 +205,49 @@ Changing it re-anchors every plan's forecast (the whole point of the Current Cas
 
 ---
 
-## 6. Full endpoint index (status of every endpoint that exists)
+## 6. Plan creation ✅ Verified
+
+**Figma screen:** Create Plan (name only — no starting-balance override on this screen).
+
+### `POST /scenarios`
+
+Creates a new plan ("scenario" internally) for the caller. Every new account already has exactly one plan from registration — the **Base Plan** (`is_base: true`) — which cannot be created, renamed away from, deleted, or archived by this or any other endpoint; this call always creates a new, non-Base plan alongside it.
+
+**Request** (this screen only ever sends `name`):
+```json
+{
+  "name": "Buy a House"
+}
+```
+
+The schema also accepts an optional `current_balance_override_minor` (a per-plan override of the Current Cash Balance) — **not used by this screen**, so omit it entirely; it's documented in full whenever the screen that actually sets it is verified.
+
+**Success — `201 Created`:**
+```json
+{
+  "id": "d9036867-8a86-41be-a3af-475b0cd2ff06",
+  "name": "Buy a House",
+  "is_base": false,
+  "current_balance_override_minor": null,
+  "archived_at": null,
+  "created_at": "2026-09-16T16:34:56.804502+05:00",
+  "updated_at": "2026-09-16T16:34:56.804502+05:00"
+}
+```
+
+**Errors:**
+
+| `code` | HTTP | When |
+|---|---|---|
+| `scenario.name_taken` | 409 | The caller already has a plan with this exact name — **including the Base Plan's own name ("Base Plan") and any archived plan's name.** Uniqueness is per-user across every plan regardless of archived state, not just active ones. |
+| `validation.invalid` | 422 | Name is blank or whitespace-only after trimming (e.g. `""`, `"   "`) |
+| `validation.required` | 422 | Name missing entirely |
+
+**Name matching is exact and case-sensitive, with no trimming of the stored value.** `"Buy a House"` and `"buy a house"` are treated as different, non-conflicting names; a name with accidental leading/trailing spaces (e.g. `"  Buy a House  "`) is stored exactly as typed, not trimmed. Only a name that's *entirely* whitespace is rejected (see `validation.invalid` above) — trim on the client side before sending if you want to avoid the case-sensitivity/whitespace edge cases from ever reaching the user as a confusing "already taken" or "looks identical but isn't" situation.
+
+---
+
+## 7. Full endpoint index (status of every endpoint that exists)
 
 Detailed contracts for these land above (or in their own section) once their Figma screen is walked through. Method/path/purpose here is accurate and already fully built+tested server-side — see `backend-plan/08-api-endpoints-plan.md` for the internal version of this same table if you need something ahead of its screen's turn.
 
@@ -225,7 +267,7 @@ Detailed contracts for these land above (or in their own section) once their Fig
 | Categories | `PATCH /categories/{id}` | ⏳ |
 | Categories | `DELETE /categories/{id}` | ⏳ |
 | Plans | `GET /scenarios?include_archived=` | ⏳ |
-| Plans | `POST /scenarios` | ⏳ |
+| Plans | `POST /scenarios` | ✅ §6 |
 | Plans | `GET /scenarios/{id}` | ⏳ |
 | Plans | `PATCH /scenarios/{id}` | ⏳ |
 | Plans | `DELETE /scenarios/{id}` | ⏳ |
@@ -247,7 +289,7 @@ Detailed contracts for these land above (or in their own section) once their Fig
 
 ---
 
-## 7. Error code reference (all codes, every endpoint)
+## 8. Error code reference (all codes, every endpoint)
 
 Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — this table exists for the `code` values themselves, to branch client logic on.
 
@@ -286,7 +328,7 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 
 ---
 
-## 8. Open items that affect integration
+## 9. Open items that affect integration
 
 - **Arabic text is unreviewed** (§3.1) — display it, but expect it to be replaced with native-speaker-reviewed copy later without any contract change.
 - **No forgot/reset-password-via-email in this phase** — a user who forgets their password has no self-service recovery until Phase 2; the only password change path is `PATCH /me/password` while logged in (requires the current password). Design the Login screen's "forgot password?" affordance accordingly — either omit it for now or show it as "coming soon."

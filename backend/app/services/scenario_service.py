@@ -43,6 +43,7 @@ class ScenarioService:
     def create(
         self, user_id: uuid.UUID, *, name: str, current_balance_override_minor: int | None = None
     ) -> Scenario:
+        self._validate_name(name)
         self._check_name_available(user_id, name)
         return self.scenarios.create(
             user_id=user_id,
@@ -61,6 +62,7 @@ class ScenarioService:
     ) -> Scenario:
         scenario = self.get(user_id, scenario_id)
         if name is not None and name != scenario.name:
+            self._validate_name(name)
             self._check_name_available(user_id, name)
             scenario.name = name
         if _unset_current_balance_override:
@@ -98,6 +100,8 @@ class ScenarioService:
             # Architecture §6.2: rejected as a duplicate source -- restore
             # first (screen-flow §8.1).
             raise APIError("scenario.archived")
+        if name is not None:
+            self._validate_name(name)
         new_name = name or f"{source.name} (copy)"
         self._check_name_available(user_id, new_name)
 
@@ -123,6 +127,10 @@ class ScenarioService:
                     end_date=txn.end_date,
                 )
         return copy
+
+    def _validate_name(self, name: str) -> None:
+        if not name.strip():
+            raise APIError("validation.invalid", {"field": "name"})
 
     def _check_name_available(self, user_id: uuid.UUID, name: str) -> None:
         if self.scenarios.get_by_name(user_id, name) is not None:
