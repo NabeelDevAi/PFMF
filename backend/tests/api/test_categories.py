@@ -30,13 +30,13 @@ def test_categories_lists_seeded_system_categories(client: TestClient) -> None:
 
     keys = {c["key"] for c in items}
     assert "salary" in keys
-    assert "rent" in keys
+    assert "housing" in keys
     assert all(c["user_id"] is None for c in items)  # none of these are user-created yet
     assert all(c["name"] is None for c in items)  # system categories carry key, not name
 
     directions = {c["key"]: c["direction"] for c in items}
     assert directions["salary"] == "income"
-    assert directions["rent"] == "expense"
+    assert directions["housing"] == "expense"
 
 
 def test_create_category_requires_auth(client: TestClient) -> None:

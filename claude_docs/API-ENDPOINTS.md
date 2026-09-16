@@ -6,7 +6,7 @@ For the full endpoint index (every endpoint that exists, whether or not it's bee
 
 **Status legend:**
 - ✅ **Verified** — walked through against a specific Figma screen, contract below is exact and tested.
-- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§8) so nothing is forgotten; full contract lands here once its turn comes.
+- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§9) so nothing is forgotten; full contract lands here once its turn comes.
 
 ---
 
@@ -67,7 +67,7 @@ Every non-2xx response has this shape:
 - **`message_en`** / **`message_ar`** are ready-to-display text, generated server-side. Pick one by the phone's system language — no client-side translation table needed. **Caveat: the Arabic text is a first-pass machine draft, not yet reviewed by a native speaker** — expect it to be swapped for reviewed copy later; the `code` and the response shape itself will not change when that happens.
 - **`params`** gives structured detail for the few codes that carry it (e.g. `{"field": "name"}` for a missing-field validation error) — not meant to be interpolated into the message text.
 
-Full error code reference: §9 below.
+Full error code reference: §10 below.
 
 ### 3.2 Action-confirmation response shape
 
@@ -311,7 +311,77 @@ Nothing else about the request changes — same path, same auth, no body.
 
 ---
 
-## 8. Full endpoint index (status of every endpoint that exists)
+## 8. Add / edit / delete a transaction ✅ Verified
+
+**Figma screens:** New expense/income (amount-first entry), Edit transaction (own/Base row — Save changes, Delete), Edit transaction (category picker sheet), Edit transaction (schedule sheet), Edit transaction (Modified/overridden row — Save changes, Revert to Base, Remove from this plan).
+
+The fields on every one of these screens (name, amount, category, schedule, notes, plus the income/expense entry toggle) map onto the same request bodies whether it's the create screen or the edit screen — there's no separate "quick add" vs. "full add" shape.
+
+### 8.1 Create — `POST /scenarios/{id}/transactions`
+
+```json
+{
+  "name": "Rent",
+  "amount_minor": 450000,
+  "direction": "expense",
+  "recurrence": "monthly",
+  "start_date": "2026-01-01",
+  "end_date": null,
+  "category_id": "2fa6e445-be55-4fee-9ab7-68b7869d6791",
+  "notes": "Optional context for this transaction."
+}
+```
+`end_date`, `category_id`, `notes` are all optional (omit or `null`). **Success — `201 Created`:** a `TransactionOut` (§7's shape — `origin` is `own` on the Base Plan, `added` on any other plan; `overlay_id` is always `null` here, since a freshly-created row never has an overlay).
+
+**Errors:** `transaction.amount_not_positive` (422, `amount_minor <= 0`), `transaction.end_before_start` (422), `transaction.one_time_has_end_date` (422, a `one_time` recurrence can't carry an `end_date`), `validation.invalid` (422, e.g. a `category_id` that doesn't exist or isn't visible to this user), `validation.required`, `resource.not_found` (bad `scenario_id`).
+
+### 8.2 Editing a row you own directly (`origin: "own"` or `"added"`) — the plain Edit screens (2 & 3 in your screenshots)
+
+- **"Save changes"** → `PATCH /transactions/{id}`. Every field is optional/patch-style — send only what changed. Confirmed: name, `amount_minor`, `category_id`, `recurrence`, `notes` all update correctly; `end_date` has an explicit `unset_end_date: true` flag to clear it back to open-ended (sending `end_date: null` is not read as "clear it" — only `unset_end_date` is).
+- **The Expense/Income toggle is correctly greyed out in your mockup — this matches real backend behavior.** `direction` is accepted in the request body only to detect a change and reject it: sending a different `direction` than the row already has returns `transaction.direction_immutable` (422), never a silent no-op or a value flip. Don't let the client send `direction` at all here unless it's unchanged.
+- **"Delete"** → `DELETE /transactions/{id}` — the action-confirmation shape (§3.2), `transaction.deleted`. The caption under your Delete button ("This removes it from your Base Plan and every plan that inherits it") is accurate for a Base row: deleting it cascades to every overlay any derived plan had on it (`ON DELETE CASCADE`). **Before calling this on a Base row**, consider calling `GET /transactions/{id}/dependents` first (⏳, not yet given its own screen pass) — it returns which plans have an overlay on this transaction, which is what a real confirmation dialog naming affected plans would need; your mockup currently only shows static caption text, not a dynamic per-plan warning.
+
+**Errors on both:** `resource.not_found` (row doesn't exist or belongs to another user — this also covers the case where the id given belongs to an *inherited/overridden* row, since those aren't rows in this table at all; the client must never reach these two routes for anything but an `own`/`added` origin — see §7's origin table).
+
+### 8.3 Editing an inherited/overridden row (screen 5 in your screenshots — the "Modified" badge)
+
+This screen never touches `/transactions/{id}` at all — every action on it goes through the overlay endpoints (§7 already covers where `overlay_id` comes from: the same list response that got the user here).
+
+| Button | Call | Effect |
+|---|---|---|
+| **Save changes** (row already `overridden`, i.e. has an `overlay_id`) | `PATCH /scenarios/{id}/overlays/{overlay_id}` with the changed `ovr_*` fields (`ovr_amount_minor`, `ovr_name`, `ovr_category_id`, `ovr_recurrence`, `ovr_start_date`, `ovr_end_date`/`unset_end_date`) | Updates just the overridden fields; anything not overridden keeps following Base live |
+| **Save changes** (row currently `inherited`, no overlay yet — not shown in your screenshots, but the same screen reached before any field is changed) | `POST /scenarios/{id}/overlays` with `op: "override"`, `base_transaction_id` = the row's own `id`, plus the `ovr_*` fields that differ from Base | Creates the override for the first time |
+| **Revert to Base** | `DELETE /scenarios/{id}/overlays/{overlay_id}` | Deletes the overlay entirely — row goes back to plain `inherited`, following Base exactly, live. Same action-confirmation message as everywhere else (`overlay.deleted`, *"Change reverted to Base"*) |
+| **Remove from this plan**, row is `inherited` | `POST /scenarios/{id}/overlays` with `op: "exclude"`, `base_transaction_id` = the row's `id` | Row becomes `excluded` (§7) |
+| **Remove from this plan**, row is `overridden`/`"Modified"` (as in your screenshot) | **Two calls, not one:** `DELETE /scenarios/{id}/overlays/{overlay_id}` (drops the override) then `POST /scenarios/{id}/overlays` with `op: "exclude"` on the same `base_transaction_id` | An overlay's `op` can never flip from override to exclude in place — a deliberate backend rule (`overlay_service.py`'s own docstring: *"'Remove from this plan' and overriding a value are distinct user actions, not the same overlay reinterpreted"*). **Don't surface the first call's response message to the user** (`"Change reverted to Base"` is a side-effect of the mechanism, not what happened from the user's point of view) — show your own "Removed from this plan" copy only once the second call succeeds. |
+
+Verified live end to end: override Rent's amount, edit the override again, then remove it from the plan via the two-call sequence above — confirmed it disappears from `filter=active` and appears under `filter=removed` with the correct `overlay_id`, and that a plain single-call **Revert to Base** on a still-overridden row restores it to `inherited` correctly (same mechanism already covered in §7's restore test).
+
+**Errors:** same overlay error codes as everywhere else — `overlay.target_not_in_base` (422, wrong `base_transaction_id`), `overlay.already_exists` (409, only relevant if you skip the delete step above and try to create a second overlay on a target that still has one), `overlay.scenario_is_base` (422, these routes reject being called on the Base Plan itself), `resource.not_found` (bad `overlay_id`/`scenario_id`), plus the same `transaction.*` validation codes as create (an override that would make the merged amount ≤ 0, etc.).
+
+### 8.4 Schedule picker
+
+The seven options in your Schedule sheet map exactly to the backend's `recurrence` values — no gaps, nothing to reconcile:
+
+| Sheet label | `recurrence` value |
+|---|---|
+| One time | `one_time` |
+| Weekly | `weekly` |
+| Every 2 weeks | `biweekly` |
+| Monthly | `monthly` |
+| Quarterly | `quarterly` |
+| Every 6 months | `semiannual` |
+| Yearly | `annual` |
+
+The sheet's caption about a 29th–31st start date "falling on the last day in shorter months" describes the engine's clamp behavior for month-based recurrences — purely informational copy, not something the client computes; the server always returns the already-clamped occurrence dates.
+
+### 8.5 Category picker (as used from this screen)
+
+`GET /categories` returns system categories (`user_id: null`, translated client-side by `key`) plus the caller's own. **The system set was just replaced to match this exact picker** (migration `0015`) — 12 keys: income `salary`, `freelance`, `business`; expense `housing`, `loans`, `bills`, `subscriptions`, `everyday`, `transport`, `fuel`, `health`, `other`. **The picker doesn't filter by the transaction's own direction** — your mockup shows income and expense categories together in one grid for an expense transaction, and that matches the backend exactly: nothing rejects an expense transaction using an income-keyed category or vice versa. Full `GET`/`POST`/`PATCH`/`DELETE /categories` request/response contracts are still ⏳, held for the Categories screen's own turn.
+
+---
+
+## 9. Full endpoint index (status of every endpoint that exists)
 
 Detailed contracts for these land above (or in their own section) once their Figma screen is walked through. Method/path/purpose here is accurate and already fully built+tested server-side — see `backend-plan/08-api-endpoints-plan.md` for the internal version of this same table if you need something ahead of its screen's turn.
 
@@ -339,13 +409,13 @@ Detailed contracts for these land above (or in their own section) once their Fig
 | Plans | `POST /scenarios/{id}/archive` | ⏳ |
 | Plans | `POST /scenarios/{id}/unarchive` | ⏳ |
 | Transactions | `GET /scenarios/{id}/transactions?filter=` | ✅ §7 |
-| Transactions | `POST /scenarios/{id}/transactions` | ⏳ |
-| Transactions | `PATCH /transactions/{id}` | ⏳ |
-| Transactions | `DELETE /transactions/{id}` | ⏳ |
+| Transactions | `POST /scenarios/{id}/transactions` | ✅ §8 |
+| Transactions | `PATCH /transactions/{id}` | ✅ §8 |
+| Transactions | `DELETE /transactions/{id}` | ✅ §8 |
 | Transactions | `GET /transactions/{id}/dependents` | ⏳ |
-| Overlays | `POST /scenarios/{id}/overlays` | ⏳ |
-| Overlays | `PATCH /scenarios/{id}/overlays/{ovid}` | ⏳ |
-| Overlays | `DELETE /scenarios/{id}/overlays/{ovid}` | ⏳ |
+| Overlays | `POST /scenarios/{id}/overlays` | ✅ §8 |
+| Overlays | `PATCH /scenarios/{id}/overlays/{ovid}` | ✅ §8 |
+| Overlays | `DELETE /scenarios/{id}/overlays/{ovid}` | ✅ §8 |
 | Forecast & Compare | `GET /scenarios/{id}/forecast?horizon=&anchor=` | ⏳ |
 | Forecast & Compare | `GET /forecast/compare?a=&b=&horizon=&anchor=` | ⏳ |
 | Account data | `DELETE /me/data` | ⏳ |
@@ -353,7 +423,7 @@ Detailed contracts for these land above (or in their own section) once their Fig
 
 ---
 
-## 9. Error code reference (all codes, every endpoint)
+## 10. Error code reference (all codes, every endpoint)
 
 Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — this table exists for the `code` values themselves, to branch client logic on.
 
@@ -392,7 +462,7 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 
 ---
 
-## 10. Open items that affect integration
+## 11. Open items that affect integration
 
 - **Arabic text is unreviewed** (§3.1) — display it, but expect it to be replaced with native-speaker-reviewed copy later without any contract change.
 - **No forgot/reset-password-via-email in this phase** — a user who forgets their password has no self-service recovery until Phase 2; the only password change path is `PATCH /me/password` while logged in (requires the current password). Design the Login screen's "forgot password?" affordance accordingly — either omit it for now or show it as "coming soon."

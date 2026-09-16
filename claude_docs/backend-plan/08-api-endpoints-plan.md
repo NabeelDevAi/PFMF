@@ -36,6 +36,8 @@ Note: **Current Cash Balance changes are consequential** — every scenario's fo
 
 Built as a small addition beyond the architecture doc's locked §9 surface (see `12-open-questions-and-future-hardening.md` §3). All four CRUD operations on a user category are now built. Ownership enforcement follows the same convention as everywhere else (09 §3): a system category or another user's category is 404-equivalent to PATCH/DELETE, never a distinguishable "forbidden." Deleting a category still referenced by a transaction or an overlay's override is rejected with `category.in_use` (409) rather than surfacing the underlying FK error.
 
+**System category set (migration `0015`):** 12 keys, matching the Figma category-picker mockup exactly — income: `salary`, `freelance`, `business`; expense: `housing`, `loans`, `bills`, `subscriptions`, `everyday`, `transport`, `fuel`, `health`, `other`. Replaces migration `0004`'s original 20-key placeholder set wholesale (see `12-open-questions-and-future-hardening.md` §9 item 5). Note the category picker itself doesn't filter by the transaction's own direction — every category, income or expense, is selectable regardless (matches the mockup, which shows both in one ungrouped grid); nothing server-side enforces `category.direction == transaction.direction` either.
+
 ## 4. Scenarios (Plans)
 
 | Endpoint | Purpose | Key error codes |

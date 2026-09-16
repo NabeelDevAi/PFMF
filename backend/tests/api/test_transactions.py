@@ -146,7 +146,7 @@ def test_create_with_system_category_succeeds(client: TestClient) -> None:
     headers = _auth_headers(client)
     scenario_id = _base_scenario_id(client, headers)
     categories = client.get("/v1/categories", headers=headers).json()["items"]
-    rent_category = next(c for c in categories if c["key"] == "rent")
+    housing_category = next(c for c in categories if c["key"] == "housing")
 
     resp = client.post(
         f"/v1/scenarios/{scenario_id}/transactions",
@@ -157,11 +157,11 @@ def test_create_with_system_category_succeeds(client: TestClient) -> None:
             "direction": "expense",
             "recurrence": "monthly",
             "start_date": "2026-01-01",
-            "category_id": rent_category["id"],
+            "category_id": housing_category["id"],
         },
     )
     assert resp.status_code == 201
-    assert resp.json()["category_id"] == rent_category["id"]
+    assert resp.json()["category_id"] == housing_category["id"]
 
 
 def test_direction_is_immutable(client: TestClient) -> None:
