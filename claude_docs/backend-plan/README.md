@@ -1,4 +1,4 @@
-# PFMF Backend — Development Plan
+# Horizon Backend — Development Plan
 
 **Status:** Draft v1.0 — planning artifact, no code yet
 **Depends on:** `phase1-system-architecture.md`, `phase1-backend-build-spec.md`, `phase1-screen-flow-spec.md`

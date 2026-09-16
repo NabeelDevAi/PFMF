@@ -21,7 +21,7 @@ def create_app() -> FastAPI:
     settings = get_settings()  # instantiated eagerly so a missing required env var fails fast, now
     configure_logging(settings.log_level)
 
-    app = FastAPI(title="PFMF Backend", version="0.1.0")
+    app = FastAPI(title="Horizon Backend", version="0.1.0")
 
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(
