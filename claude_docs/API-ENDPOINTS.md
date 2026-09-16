@@ -1,0 +1,241 @@
+# Horizon — API Reference (Flutter Integration)
+
+This is the handoff document for Flutter development. It is a **living document**: as each Figma screen is verified against the backend (screen-by-screen, feature by feature), the endpoint(s) it depends on get their full contract written up here — exact request/response shapes, real examples, every error the client needs to handle. Nothing goes in here as a guess; every entry below was hit with a real HTTP request against the running backend before being written down.
+
+For the full endpoint index (every endpoint that exists, whether or not it's been screen-verified yet), see `backend-plan/08-api-endpoints-plan.md` — that's the internal planning doc. This file is the subset of it that's actually been walked through screen-by-screen, in the detail a client needs to integrate against it.
+
+**Status legend:**
+- ✅ **Verified** — walked through against a specific Figma screen, contract below is exact and tested.
+- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§5) so nothing is forgotten; full contract lands here once its turn comes.
+
+---
+
+## 1. Base URL
+
+No production/staging URL yet — deployment is explicitly not scheduled for this phase. For local development against the backend running on your machine:
+
+| Client | Base URL |
+|---|---|
+| Android emulator | `http://10.0.2.2:8000/v1` |
+| iOS simulator | `http://127.0.0.1:8000/v1` |
+| Physical device (same Wi-Fi as the dev machine) | `http://<dev-machine-LAN-IP>:8000/v1` |
+
+Every path below is written **relative to that base** (e.g. `/auth/login` means `http://10.0.2.2:8000/v1/auth/login`). The server is started with `uvicorn app.main:app --reload` from `backend/`, default port `8000`.
+
+Mobile-only (confirmed) — CORS is a browser-only restriction and does not apply to native Android/iOS HTTP calls, so it's a non-issue here.
+
+---
+
+## 2. Auth
+
+**Header for every authenticated request:**
+```
+Authorization: Bearer <access_token>
+```
+
+- **Access token**: JWT, expires in **15 minutes**. When a request fails with `auth.token_expired`, call `/auth/refresh` and retry.
+- **Refresh token**: opaque string, longer-lived. Every call to `/auth/refresh` **rotates** it — the response's new `refresh_token` replaces the old one in client storage; the old one stops working immediately. **Never reuse a refresh token you've already exchanged** — doing so is treated as token theft and revokes every token issued from that login (the user is forced to log in again).
+- Routes that need **no** `Authorization` header at all: `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`.
+
+---
+
+## 3. Response conventions (apply to every endpoint below)
+
+- **Money** is always a plain integer in minor units (e.g. halalas), in a field named `..._minor`. Never a decimal, never a formatted string. Format it client-side.
+- **Dates** are `"YYYY-MM-DD"` strings; **months** are `"YYYY-MM"` strings. No timestamps anywhere in financial data.
+- **Currency** is always a separate ISO code field (e.g. `"SAR"`), never a symbol.
+- Every **list** response is wrapped in an `"items"` array field, not returned as a bare JSON array.
+- Every response (success or error) carries a `request_id` — useful for bug reports, not meant to be shown to the user.
+
+### 3.1 Error response shape
+
+Every non-2xx response has this shape:
+
+```json
+{
+  "error": {
+    "code": "auth.invalid_credentials",
+    "message_en": "The email or password you entered is incorrect.",
+    "message_ar": "البريد الإلكتروني أو كلمة المرور التي أدخلتها غير صحيحة.",
+    "params": {},
+    "request_id": "b3f1..."
+  }
+}
+```
+
+- **`code`** is machine-readable — branch on this (e.g. `auth.token_expired` → silently refresh and retry), never on `message_en`/`message_ar`.
+- **`message_en`** / **`message_ar`** are ready-to-display text, generated server-side. Pick one by the phone's system language — no client-side translation table needed. **Caveat: the Arabic text is a first-pass machine draft, not yet reviewed by a native speaker** — expect it to be swapped for reviewed copy later; the `code` and the response shape itself will not change when that happens.
+- **`params`** gives structured detail for the few codes that carry it (e.g. `{"field": "name"}` for a missing-field validation error) — not meant to be interpolated into the message text.
+
+Full error code reference: §6 below.
+
+### 3.2 Action-confirmation response shape
+
+A handful of endpoints that don't return any resource (e.g. delete/logout) return `200 OK` with this shape instead of an empty body:
+
+```json
+{
+  "message_en": "You've been logged out.",
+  "message_ar": "تم تسجيل خروجك."
+}
+```
+
+Every other endpoint returns the resource it just created/changed/fetched directly (no wrapper) — the client already has what it needs from that data.
+
+---
+
+## 4. Auth endpoints ✅ Verified
+
+**Figma screens:** Sign Up, Login.
+
+### `POST /auth/register`
+
+Creates the account, its Base Plan, and default settings in one step. `name` is required — it's stored as the user's display name from the moment the account exists (never blank/null for a new user).
+
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "password": "correct-horse-battery",
+  "name": "Nabeel Ahmed"
+}
+```
+
+**Success — `201 Created`:**
+```json
+{
+  "access_token": "eyJhbGciOi...",
+  "refresh_token": "8ViM_qt7RE...",
+  "token_type": "bearer"
+}
+```
+
+**Errors:**
+
+| `code` | HTTP | When |
+|---|---|---|
+| `auth.email_taken` | 409 | Email already registered |
+| `auth.weak_password` | 422 | Password fails policy (see below) |
+| `validation.required` | 422 | `name`, `email`, or `password` missing — `params.field` names which one |
+| `validation.invalid` | 422 | Malformed email |
+| `rate_limited` | 429 | More than 5 attempts/minute from the same IP |
+
+**Password policy:** minimum **8 characters**, no other complexity rule (no forced uppercase/digit/symbol). Same rule on register and on `PATCH /me/password`. Safe to mirror client-side for instant form feedback — the server is still the source of truth and returns `auth.weak_password` either way.
+
+### `POST /auth/login`
+
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "password": "correct-horse-battery"
+}
+```
+
+**Success — `200 OK`:** same shape as register's success response (`access_token`, `refresh_token`, `token_type`).
+
+**Errors:**
+
+| `code` | HTTP | When |
+|---|---|---|
+| `auth.invalid_credentials` | 401 | Wrong password **or** unknown email — deliberately the same code/message for both, so a login form can never be used to test which emails are registered |
+| `rate_limited` | 429 | More than 5 attempts/minute from the same IP |
+
+### `POST /auth/refresh`
+
+**Request:** `{"refresh_token": "..."}`
+**Success — `200 OK`:** new `access_token` + new `refresh_token` (old refresh token is now dead).
+**Errors:** `auth.token_invalid` (401) — unknown, already-used, or revoked token.
+
+### `POST /auth/logout`
+
+**Request:** `{"refresh_token": "..."}`
+**Success — `200 OK`:** action-confirmation shape (§3.2). Idempotent — calling it with an already-invalid token still returns `200`, not an error.
+
+---
+
+## 5. Full endpoint index (status of every endpoint that exists)
+
+Detailed contracts for these land above (or in their own section) once their Figma screen is walked through. Method/path/purpose here is accurate and already fully built+tested server-side — see `backend-plan/08-api-endpoints-plan.md` for the internal version of this same table if you need something ahead of its screen's turn.
+
+| Area | Endpoint | Status |
+|---|---|---|
+| Auth | `POST /auth/register` | ✅ §4 |
+| Auth | `POST /auth/login` | ✅ §4 |
+| Auth | `POST /auth/refresh` | ✅ §4 |
+| Auth | `POST /auth/logout` | ✅ §4 |
+| Me / Settings | `GET /me` | ⏳ |
+| Me / Settings | `PATCH /me/settings` | ⏳ |
+| Me / Settings | `PUT /me/balance` | ⏳ |
+| Me / Settings | `PATCH /me/password` | ⏳ |
+| Me / Settings | `DELETE /me` | ⏳ |
+| Categories | `GET /categories` | ⏳ |
+| Categories | `POST /categories` | ⏳ |
+| Categories | `PATCH /categories/{id}` | ⏳ |
+| Categories | `DELETE /categories/{id}` | ⏳ |
+| Plans | `GET /scenarios?include_archived=` | ⏳ |
+| Plans | `POST /scenarios` | ⏳ |
+| Plans | `GET /scenarios/{id}` | ⏳ |
+| Plans | `PATCH /scenarios/{id}` | ⏳ |
+| Plans | `DELETE /scenarios/{id}` | ⏳ |
+| Plans | `POST /scenarios/{id}/duplicate` | ⏳ |
+| Plans | `POST /scenarios/{id}/archive` | ⏳ |
+| Plans | `POST /scenarios/{id}/unarchive` | ⏳ |
+| Transactions | `GET /scenarios/{id}/transactions` | ⏳ |
+| Transactions | `POST /scenarios/{id}/transactions` | ⏳ |
+| Transactions | `PATCH /transactions/{id}` | ⏳ |
+| Transactions | `DELETE /transactions/{id}` | ⏳ |
+| Transactions | `GET /transactions/{id}/dependents` | ⏳ |
+| Overlays | `POST /scenarios/{id}/overlays` | ⏳ |
+| Overlays | `PATCH /scenarios/{id}/overlays/{ovid}` | ⏳ |
+| Overlays | `DELETE /scenarios/{id}/overlays/{ovid}` | ⏳ |
+| Forecast & Compare | `GET /scenarios/{id}/forecast?horizon=&anchor=` | ⏳ |
+| Forecast & Compare | `GET /forecast/compare?a=&b=&horizon=&anchor=` | ⏳ |
+| Account data | `DELETE /me/data` | ⏳ |
+| Account data | `GET /me/export?format=` | ⏳ |
+
+---
+
+## 6. Error code reference (all codes, every endpoint)
+
+Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — this table exists for the `code` values themselves, to branch client logic on.
+
+| Code | HTTP | Meaning |
+|---|---|---|
+| `auth.invalid_credentials` | 401 | Email or password is wrong |
+| `auth.email_taken` | 409 | Registration attempted with an email already in use |
+| `auth.token_expired` | 401 | Access token expired — refresh and retry |
+| `auth.token_invalid` | 401 | Malformed, unknown, or revoked token |
+| `auth.weak_password` | 422 | Password below policy |
+| `auth.current_password_incorrect` | 422 | `PATCH /me/password`'s current-password check failed |
+| `balance.as_of_in_future` | 422 | `PUT /me/balance`'s as-of date is later than today |
+| `balance.as_of_too_old` | 422 | `PUT /me/balance`'s as-of date is more than 5 years ago |
+| `validation.required` | 422 | A required field is missing (`params.field` names it) |
+| `validation.invalid` | 422 | Generic field validation failure |
+| `transaction.amount_not_positive` | 422 | Amount is zero or negative |
+| `transaction.end_before_start` | 422 | End date precedes start date |
+| `transaction.one_time_has_end_date` | 422 | A one-time transaction was given an end date |
+| `transaction.direction_immutable` | 422 | Attempt to flip income ↔ expense on an existing transaction |
+| `scenario.base_immutable` | 409 | Attempt to delete or archive the Base plan |
+| `scenario.name_taken` | 409 | Duplicate plan name for this user |
+| `scenario.archived` | 409 | An archived plan used as a comparison operand or duplicate source |
+| `scenario.not_archived` | 409 | Unarchive attempted on a plan that isn't archived |
+| `overlay.target_not_in_base` | 422 | An overlay was pointed at a transaction that isn't in Base |
+| `overlay.already_exists` | 409 | A second overlay was attempted against the same target |
+| `overlay.scenario_is_base` | 422 | An overlay was attempted on the Base plan itself |
+| `category.in_use` | 409 | Deleting a category still referenced by a transaction or override |
+| `compare.same_scenario` | 422 | Plan A and Plan B are the same plan |
+| `forecast.invalid_horizon` | 422 | Horizon is outside the allowed range |
+| `resource.not_found` | 404 | Also returned for another user's resource — never distinguishable from "doesn't exist" |
+| `rate_limited` | 429 | Too many attempts on a rate-limited route (login/register: 5/min per IP) |
+| `internal` | 500 | Unhandled server error — report the `request_id` |
+
+**`resource.not_found` for someone else's data is deliberate, not a bug** — a 403 would confirm the resource exists at all, which is itself a leak in a financial product. Treat it as "this id doesn't exist" in the UI either way.
+
+---
+
+## 7. Open items that affect integration
+
+- **Arabic text is unreviewed** (§3.1) — display it, but expect it to be replaced with native-speaker-reviewed copy later without any contract change.
+- **No forgot/reset-password-via-email in this phase** — a user who forgets their password has no self-service recovery until Phase 2; the only password change path is `PATCH /me/password` while logged in (requires the current password). Design the Login screen's "forgot password?" affordance accordingly — either omit it for now or show it as "coming soon."
+- **No production/staging base URL yet** — deployment is deliberately held; §1's local URLs are all that exist right now.
