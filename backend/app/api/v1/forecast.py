@@ -41,13 +41,14 @@ def get_forecast(
     scenario_id: uuid.UUID,
     horizon: int = Query(...),
     anchor: str | None = Query(None),
+    include_occurrences: bool = Query(False),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ForecastOut:
     result = ForecastService(db).forecast(
         user.id, scenario_id, horizon_months=horizon, anchor_month=_parse_anchor(anchor)
     )
-    return ForecastOut.from_result(result)
+    return ForecastOut.from_result(result, include_occurrences=include_occurrences)
 
 
 @router.get("/forecast/compare", response_model=CompareOut)

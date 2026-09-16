@@ -209,6 +209,102 @@ def test_forecast_current_month_and_months_elapsed(client: TestClient) -> None:
     assert body["months_elapsed"] == expected_elapsed
 
 
+def test_forecast_omits_occurrences_by_default(client: TestClient) -> None:
+    """Default off, so every other caller of this endpoint (the Plans
+    list summary, the Compare screen) doesn't pay for data it never
+    asked for."""
+    headers = _auth_headers(client, email="nooccur@example.com")
+    base_id = _base_id(client, headers)
+    client.post(
+        f"/v1/scenarios/{base_id}/transactions",
+        headers=headers,
+        json={
+            "name": "Rent",
+            "amount_minor": 300000,
+            "direction": "expense",
+            "recurrence": "monthly",
+            "start_date": "2026-01-01",
+        },
+    )
+
+    resp = client.get(f"/v1/scenarios/{base_id}/forecast", headers=headers, params={"horizon": 1})
+    assert resp.json()["occurrences"] is None
+
+
+def test_forecast_include_occurrences_returns_dated_instances(client: TestClient) -> None:
+    """This is the data behind the Home screen's within-month weekly
+    chart -- the client buckets these by date itself; the server never
+    defines what a "week within a month" is."""
+    headers = _auth_headers(client, email="occur@example.com")
+    base_id = _base_id(client, headers)
+    client.post(
+        f"/v1/scenarios/{base_id}/transactions",
+        headers=headers,
+        json={
+            "name": "Rent",
+            "amount_minor": 300000,
+            "direction": "expense",
+            "recurrence": "monthly",
+            "start_date": "2026-01-01",
+        },
+    )
+    client.post(
+        f"/v1/scenarios/{base_id}/transactions",
+        headers=headers,
+        json={
+            "name": "Groceries",
+            "amount_minor": 15000,
+            "direction": "expense",
+            "recurrence": "weekly",
+            "start_date": "2026-01-03",
+        },
+    )
+
+    resp = client.get(
+        f"/v1/scenarios/{base_id}/forecast",
+        headers=headers,
+        params={"horizon": 1, "anchor": "2026-01", "include_occurrences": True},
+    )
+    assert resp.status_code == 200
+    occurrences = resp.json()["occurrences"]
+    assert occurrences is not None
+
+    rent = [o for o in occurrences if o["name"] == "Rent"]
+    assert len(rent) == 1  # one monthly occurrence within a single-month horizon
+    assert rent[0]["on"] == "2026-01-01"
+    assert rent[0]["amount_minor"] == 300000
+    assert rent[0]["direction"] == "expense"
+    assert "source_id" in rent[0]
+
+    groceries = [o for o in occurrences if o["name"] == "Groceries"]
+    assert len(groceries) == 5  # weekly from Jan 3rd through the end of January
+    assert [g["on"] for g in groceries] == [
+        "2026-01-03",
+        "2026-01-10",
+        "2026-01-17",
+        "2026-01-24",
+        "2026-01-31",
+    ]
+
+
+def test_compare_never_includes_occurrences(client: TestClient) -> None:
+    """The Compare screen's chart is monthly-level -- occurrences is
+    always omitted here, regardless of what the plain forecast endpoint
+    would do, since there's no query param for it on this route."""
+    headers = _auth_headers(client, email="cmpoccur@example.com")
+    base_id = _base_id(client, headers)
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Plan B"}).json()
+
+    resp = client.get(
+        "/v1/forecast/compare",
+        headers=headers,
+        params={"a": base_id, "b": plan["id"], "horizon": 1},
+    )
+    body = resp.json()
+    assert body["a"]["occurrences"] is None
+    assert body["b"]["occurrences"] is None
+
+
 def test_forecast_not_found_for_another_users_scenario(client: TestClient) -> None:
     headers_a = _auth_headers(client, email="fowner@example.com")
     headers_b = _auth_headers(client, email="fintruder@example.com")

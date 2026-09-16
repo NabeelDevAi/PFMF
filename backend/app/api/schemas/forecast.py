@@ -37,6 +37,25 @@ class TotalsOut(BaseModel):
     closing_balance_minor: int
 
 
+class OccurrenceOut(BaseModel):
+    """One dated, signed instance of a transaction -- the detail behind
+    a MonthRowOut, only returned when `?include_occurrences=true` is
+    passed to GET /scenarios/{id}/forecast (default off, so every other
+    caller of this endpoint -- the Plans list summary, the Compare
+    screen -- is unaffected). Exists so a client can build a
+    finer-than-monthly view (e.g. a within-month weekly chart) itself,
+    the same "server sends raw data, client aggregates" pattern used
+    everywhere else in this API -- there's no locked, or even sensible,
+    single definition of "a week within a month" for the server to bake
+    in instead (months don't divide evenly into weeks)."""
+
+    source_id: str
+    name: str
+    direction: Direction
+    amount_minor: int
+    on: date  # "YYYY-MM-DD"
+
+
 class ForecastOut(BaseModel):
     scenario_id: uuid.UUID
     anchor_month: str
@@ -48,9 +67,12 @@ class ForecastOut(BaseModel):
     months_elapsed: int  # anchor_month -> current_month, in months
     months: list[MonthRowOut]
     totals: TotalsOut
+    occurrences: list[OccurrenceOut] | None  # only when requested -- see OccurrenceOut
 
     @classmethod
-    def from_result(cls, result: ForecastResult) -> ForecastOut:
+    def from_result(
+        cls, result: ForecastResult, *, include_occurrences: bool = False
+    ) -> ForecastOut:
         ledger = result.ledger
         months = [
             MonthRowOut(
@@ -68,6 +90,18 @@ class ForecastOut(BaseModel):
             net_minor=sum(row.net_minor for row in ledger.months),
             closing_balance_minor=ledger.months[-1].closing_balance_minor,
         )
+        occurrences = None
+        if include_occurrences:
+            occurrences = [
+                OccurrenceOut(
+                    source_id=occ.source_id,
+                    name=occ.name,
+                    direction=Direction(occ.direction.value),
+                    amount_minor=occ.amount_minor,
+                    on=occ.on,
+                )
+                for occ in ledger.occurrences
+            ]
         return cls(
             scenario_id=result.scenario_id,
             anchor_month=str(ledger.anchor_month),
@@ -79,6 +113,7 @@ class ForecastOut(BaseModel):
             months_elapsed=result.months_elapsed,
             months=months,
             totals=totals,
+            occurrences=occurrences,
         )
 
 
