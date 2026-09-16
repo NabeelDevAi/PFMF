@@ -251,6 +251,18 @@ ALTER TABLE user_settings ADD COLUMN avatar_filename TEXT;
 
 Stores only a filename, never a URL or path — `avatar_url` is a computed property (`app/db/models/user_settings.py`), not a second stored column, built from `avatar_filename` at read time. No separate upload endpoint: set via the existing `PATCH /v1/me/settings` (an `avatar_base64` field), by explicit product decision — see `backend-plan/02-configuration-and-environment.md` §5 for the local-disk storage choice and `12-open-questions-and-future-hardening.md` §9 item 8 for the full record.
 
+### 5.4 Addendum: soft delete on `users`
+
+`DELETE /v1/me` (screen-flow F9, Settings > Delete account) is a **soft** delete by explicit product decision: it looks and behaves like a hard delete to the caller (can't log in again, every already-issued token invalid immediately, email free for a brand-new registration right away), but the row and everything it owns physically survives — Phase 2 schedules the real purge. Matches migration `0017`:
+
+```sql
+ALTER TABLE users ADD COLUMN deleted_at TIMESTAMPTZ;
+ALTER TABLE users DROP CONSTRAINT uq_users_email;
+CREATE UNIQUE INDEX uq_users_email_active ON users(email) WHERE deleted_at IS NULL;
+```
+
+The email uniqueness constraint above is deliberately a **partial** index, not the plain constraint the original `users` DDL had — the same pattern as `one_base_per_user` on `scenarios`. Uniqueness only applies among active (`deleted_at IS NULL`) rows, so a soft-deleted row never blocks a new registration reusing its email. Every ordinary lookup (`UserRepository.get_by_id`/`get_by_email`, used by login and by `get_current_user`'s per-request re-check) filters `deleted_at IS NULL` — this is what makes deletion take effect immediately without anything actually cascading. See `12-open-questions-and-future-hardening.md` §9 item 9 for the full record, including what Phase 2's scheduled job still needs to do (the real cascade delete, `UserRepository.delete()`, is already built and tested — just not called by anything yet — plus deleting the profile photo file from disk, which nothing currently does for a soft-deleted account).
+
 ---
 
 ## 6. Scenario resolution

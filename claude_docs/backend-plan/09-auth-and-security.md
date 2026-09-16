@@ -26,10 +26,14 @@ Target threshold (kept from the original spec): 5 attempts/minute per IP on logi
 
 What this removed: `POST /auth/password-reset/request` and `/confirm`, the `password_reset_tokens` table (migration `0014` drops it — migration `0007` that created it is left untouched, migrations are never edited after merge), its repository and model, the stubbed `ConsolePasswordResetSender`, the 3/hour rate limit, and the `auth.reset_token_invalid` error code (replaced by `auth.current_password_incorrect` for the new endpoint). Phase 2 re-adds this schema and flow fresh, informed by whatever email provider is chosen then, rather than resurrecting dormant code that predates that decision.
 
-## 6. Transport & storage
+## 6. Account deletion is a soft delete
+
+**Product decision.** `DELETE /v1/me` doesn't remove the row — it sets `users.deleted_at` and revokes every refresh-token family for that user, then relies on `UserRepository.get_by_id`/`get_by_email` filtering `deleted_at IS NULL` to make the account invisible to every ordinary lookup from that instant on: an already-issued access token fails on its very next request (`get_current_user` re-looks-up the user per request, same mechanism that already made deletion "instant" before this changed), a login attempt fails, and — because email uniqueness is a **partial** index (`WHERE deleted_at IS NULL`, migration `0017`, not the plain constraint the original DDL had) — the same email is immediately available to a brand-new registration, which creates a genuinely new, unrelated row. The result is indistinguishable from a hard delete at the API surface; the difference is that the row and everything it owns (settings, scenarios, transactions, overlays, a profile photo on disk) physically survive. Phase 2 schedules the real purge; `UserRepository.delete()` — the actual cascading hard delete — is already built and tested, just not called by anything in Phase 1. See `12-open-questions-and-future-hardening.md` §9 item 9.
+
+## 7. Transport & storage
 
 TLS termination and encryption-at-rest are deployment-environment concerns (they apply once this runs somewhere other than a local machine) and are out of scope for this plan — tracked in `12-open-questions-and-future-hardening.md` alongside the rest of the deployment story.
 
-## 7. Logging
+## 8. Logging
 
 Structured logs, no financial values and no personally identifying information in them — request ids only, so a specific request can be traced without ever writing a balance, an amount, or an email address to a log file. **Built** (Tier 2 #11, `app/core/logging.py`) — one JSON object per line, a `contextvar` set by `RequestIdMiddleware` correlates every log line during a request without threading the id through every function call by hand. An access-log line per request, auth events (register/login success-or-failure/refresh-reuse-detected/account-deletion) by user id, never by email. Fixed a real gap found while building this: `unhandled_exception_handler` previously returned a generic 500 with zero server-side trace of what broke -- any exception that wasn't a deliberate `APIError` disappeared silently. It now logs with a full traceback (`exc_info=exc`, which works whether or not the handler is running inside an active `except` block, unlike `logger.exception()`).

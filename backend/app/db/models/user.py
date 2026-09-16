@@ -22,9 +22,17 @@ class User(Base):
         default=uuid.uuid4,
         server_default=func.gen_random_uuid(),
     )
-    email: Mapped[str] = mapped_column(CITEXT, unique=True, nullable=False)
+    # Not unique=True here -- uniqueness is a partial index (email unique
+    # only WHERE deleted_at IS NULL, migration 0017), not a plain
+    # constraint, so a soft-deleted row's email can be reused by a new
+    # registration. Same reasoning as scenarios.one_base_per_user.
+    email: Mapped[str] = mapped_column(CITEXT, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), onupdate=func.now(), nullable=False
     )
+    # Soft-delete (product decision): DELETE /me sets this instead of
+    # actually removing the row -- see UserRepository.soft_delete()'s
+    # docstring. NULL means active; every ordinary lookup filters it out.
+    deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)

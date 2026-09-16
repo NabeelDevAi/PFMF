@@ -184,7 +184,11 @@ def test_patch_settings_rejects_an_oversized_avatar(client: TestClient) -> None:
     assert resp.json()["error"]["code"] == "avatar.too_large"
 
 
-def test_deleting_the_account_removes_its_avatar_file(client: TestClient) -> None:
+def test_deleting_the_account_leaves_its_avatar_file_for_now(client: TestClient) -> None:
+    """DELETE /me is a soft delete (product decision) -- the row and
+    everything it owns, including a photo on disk, stays physically
+    untouched until Phase 2's scheduled purge actually runs. Only
+    access to the account is what disappears immediately."""
     headers = _register_and_auth_headers(client, email="avatar7@example.com")
     avatar_url = client.patch(
         "/v1/me/settings", headers=headers, json={"avatar_base64": _PNG_BASE64}
@@ -194,7 +198,8 @@ def test_deleting_the_account_removes_its_avatar_file(client: TestClient) -> Non
 
     resp = client.delete("/v1/me", headers=headers)
     assert resp.status_code == 200
-    assert not path.exists()
+    assert path.exists()  # untouched -- not this endpoint's job
+    path.unlink()  # test hygiene -- don't leave files behind
 
 
 def test_put_balance_updates_amount_and_as_of(client: TestClient) -> None:
