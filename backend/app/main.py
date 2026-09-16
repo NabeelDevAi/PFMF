@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.errors import register_exception_handlers
 from app.api.middleware import RequestIdMiddleware
@@ -13,6 +14,7 @@ from app.api.v1.me import router as me_router
 from app.api.v1.overlays import router as overlays_router
 from app.api.v1.scenarios import router as scenarios_router
 from app.api.v1.transactions import scenario_transactions_router, transactions_router
+from app.core.avatar_storage import avatars_dir
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 
@@ -32,6 +34,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     register_exception_handlers(app)
+
+    # Local-disk avatar storage (app/core/avatar_storage.py), served back
+    # unauthenticated -- not versioned under /v1, since it's a static file
+    # mount, not part of the JSON API surface.
+    app.mount("/static/avatars", StaticFiles(directory=avatars_dir()), name="avatars")
 
     app.include_router(health_router, prefix="/v1")
     app.include_router(auth_router, prefix="/v1")

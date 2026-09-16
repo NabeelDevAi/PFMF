@@ -51,6 +51,8 @@ ERROR_STATUS: dict[str, int] = {
     "balance.as_of_in_future": 422,
     "balance.as_of_too_old": 422,
     "balance.negative_not_allowed": 422,
+    "avatar.invalid_image": 422,
+    "avatar.too_large": 422,
     "validation.required": 422,
     "validation.invalid": 422,
     "transaction.amount_not_positive": 422,
@@ -106,6 +108,14 @@ ERROR_MESSAGES: dict[str, tuple[str, str]] = {
     "balance.negative_not_allowed": (
         "Current Cash Balance can't be negative.",
         "لا يمكن أن يكون رصيدك النقدي الحالي سالبًا.",
+    ),
+    "avatar.invalid_image": (
+        "That doesn't look like a supported image. Try a JPEG, PNG, or WEBP file.",
+        "يبدو أن هذه ليست صورة مدعومة. جرّب ملف JPEG أو PNG أو WEBP.",
+    ),
+    "avatar.too_large": (
+        "That photo is too large. Please choose a smaller one.",
+        "هذه الصورة كبيرة جدًا. يرجى اختيار صورة أصغر.",
     ),
     "balance.as_of_too_old": (
         "The date you entered is too far in the past.",

@@ -7,9 +7,20 @@ a password, and it requires an active session."""
 
 from __future__ import annotations
 
+import base64
 from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
+
+from app.core.avatar_storage import avatars_dir
+from app.core.config import get_settings
+
+# Only the leading signature bytes matter to save_avatar()'s magic-byte
+# sniff (app/core/avatar_storage.py) -- it deliberately doesn't parse a
+# real image structure, so a fixture matching just the signature is
+# exactly what the code actually checks, not more.
+_PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"fake-but-signature-matches-png"
+_PNG_BASE64 = base64.b64encode(_PNG_BYTES).decode()
 
 
 def _register_and_auth_headers(client: TestClient, email: str = "me@example.com") -> dict[str, str]:
@@ -81,6 +92,109 @@ def test_patch_settings_cannot_touch_the_balance_fields(client: TestClient) -> N
     after = resp.json()["settings"]
     assert after["current_balance_minor"] == before["current_balance_minor"]
     assert after["balance_as_of"] == before["balance_as_of"]
+
+
+def test_get_me_has_no_avatar_by_default(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="noavatar@example.com")
+    settings = client.get("/v1/me", headers=headers).json()["settings"]
+    assert settings["avatar_url"] is None
+
+
+def test_patch_settings_uploads_an_avatar(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="avatar1@example.com")
+
+    resp = client.patch("/v1/me/settings", headers=headers, json={"avatar_base64": _PNG_BASE64})
+    assert resp.status_code == 200
+    avatar_url = resp.json()["settings"]["avatar_url"]
+    assert avatar_url is not None
+    assert avatar_url.startswith("/static/avatars/")
+    assert avatar_url.endswith(".png")
+
+    filename = avatar_url.removeprefix("/static/avatars/")
+    path = avatars_dir() / filename
+    assert path.read_bytes() == _PNG_BYTES
+    path.unlink()  # test hygiene -- don't leave files behind
+
+
+def test_patch_settings_uploads_an_avatar_via_data_uri(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="avatar2@example.com")
+
+    resp = client.patch(
+        "/v1/me/settings",
+        headers=headers,
+        json={"avatar_base64": f"data:image/png;base64,{_PNG_BASE64}"},
+    )
+    assert resp.status_code == 200
+    avatar_url = resp.json()["settings"]["avatar_url"]
+    filename = avatar_url.removeprefix("/static/avatars/")
+    (avatars_dir() / filename).unlink()
+
+
+def test_re_uploading_an_avatar_deletes_the_old_file(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="avatar3@example.com")
+
+    first = client.patch(
+        "/v1/me/settings", headers=headers, json={"avatar_base64": _PNG_BASE64}
+    ).json()["settings"]["avatar_url"]
+    first_path = avatars_dir() / first.removeprefix("/static/avatars/")
+    assert first_path.exists()
+
+    second = client.patch(
+        "/v1/me/settings", headers=headers, json={"avatar_base64": _PNG_BASE64}
+    ).json()["settings"]["avatar_url"]
+    second_path = avatars_dir() / second.removeprefix("/static/avatars/")
+
+    assert second != first  # a fresh random filename every upload
+    assert not first_path.exists()  # the old one is gone
+    assert second_path.exists()
+    second_path.unlink()
+
+
+def test_remove_avatar_clears_it_and_deletes_the_file(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="avatar4@example.com")
+    avatar_url = client.patch(
+        "/v1/me/settings", headers=headers, json={"avatar_base64": _PNG_BASE64}
+    ).json()["settings"]["avatar_url"]
+    path = avatars_dir() / avatar_url.removeprefix("/static/avatars/")
+    assert path.exists()
+
+    resp = client.patch("/v1/me/settings", headers=headers, json={"remove_avatar": True})
+    assert resp.status_code == 200
+    assert resp.json()["settings"]["avatar_url"] is None
+    assert not path.exists()
+
+
+def test_patch_settings_rejects_a_non_image_upload(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="avatar5@example.com")
+    not_an_image = base64.b64encode(b"just some plain text, not an image").decode()
+
+    resp = client.patch("/v1/me/settings", headers=headers, json={"avatar_base64": not_an_image})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "avatar.invalid_image"
+    assert client.get("/v1/me", headers=headers).json()["settings"]["avatar_url"] is None
+
+
+def test_patch_settings_rejects_an_oversized_avatar(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="avatar6@example.com")
+    oversized = b"\x89PNG\r\n\x1a\n" + b"\x00" * (get_settings().avatar_max_bytes + 1)
+    too_large = base64.b64encode(oversized).decode()
+
+    resp = client.patch("/v1/me/settings", headers=headers, json={"avatar_base64": too_large})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "avatar.too_large"
+
+
+def test_deleting_the_account_removes_its_avatar_file(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="avatar7@example.com")
+    avatar_url = client.patch(
+        "/v1/me/settings", headers=headers, json={"avatar_base64": _PNG_BASE64}
+    ).json()["settings"]["avatar_url"]
+    path = avatars_dir() / avatar_url.removeprefix("/static/avatars/")
+    assert path.exists()
+
+    resp = client.delete("/v1/me", headers=headers)
+    assert resp.status_code == 200
+    assert not path.exists()
 
 
 def test_put_balance_updates_amount_and_as_of(client: TestClient) -> None:

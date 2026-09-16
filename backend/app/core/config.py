@@ -11,6 +11,7 @@ they're missing -- this is deliberate, not an oversight.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import SecretStr
@@ -47,6 +48,15 @@ class Settings(BaseSettings):
 
     # Rate limiting (in-memory for this build -- see backend-plan/07 §6).
     rate_limit_auth_attempts_per_minute: int = 5
+
+    # Profile avatar storage -- local disk for this build, explicitly
+    # acknowledged as throwaway infrastructure (see
+    # 12-open-questions-and-future-hardening.md): most real hosting has an
+    # ephemeral or non-shared filesystem, so this moves to real object
+    # storage the moment deployment is picked. Relative to the backend/
+    # working directory unless an absolute path is set.
+    media_root: Path = Path("media")
+    avatar_max_bytes: int = 5 * 1024 * 1024
 
 
 @lru_cache

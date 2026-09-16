@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 class SettingsOut(BaseModel):
     display_name: str | None
+    avatar_url: str | None
     currency_code: str
     locale: str
     current_balance_minor: int
@@ -35,6 +36,14 @@ class SettingsPatch(BaseModel):
     display_name: str | None = None
     currency_code: str | None = None
     locale: str | None = None
+    # Profile photo (screen-flow F2) -- raw base64 (a data: URI prefix is
+    # tolerated and stripped), never a separate upload endpoint, by
+    # explicit product decision. remove_avatar distinguishes "don't touch
+    # it" (both fields absent/None) from "clear it back to no photo" --
+    # same NULL-vs-not-set convention as unset_end_date/
+    # unset_current_balance_override elsewhere in this API.
+    avatar_base64: str | None = None
+    remove_avatar: bool = False
 
 
 class BalanceUpdate(BaseModel):

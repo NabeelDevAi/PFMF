@@ -18,8 +18,9 @@ Settings are environment-driven (Pydantic `BaseSettings` at implementation time)
 | `log_level` | Logging verbosity | `INFO` locally, adjustable |
 | `max_horizon_months` | Forecast horizon cap (the request-range validation, not an account-scarcity limit — see below) | 120 |
 | `balance_as_of_max_age_years` | Hard backstop on `PUT /me/balance`'s as-of date | 5 |
-| `password_reset_sender` | Which email-sending implementation to use | A stub/console sender locally (see `09-auth-and-security.md`) |
-| Rate-limit thresholds | Login/register/password-reset limits | As specified in `09-auth-and-security.md` |
+| `media_root` | Local-disk root for uploaded files (currently just profile photos — see §6 below) | `media/`, relative to the backend working directory |
+| `avatar_max_bytes` | Size cap on a `PATCH /me/settings` `avatar_base64` upload | 5MB |
+| Rate-limit thresholds | Login/register limits (no password-reset limit — that flow doesn't exist, see `09-auth-and-security.md` §5) | As specified in `09-auth-and-security.md` |
 
 **No setting for a scenario or per-scenario transaction cap.** Both existed briefly (`max_scenarios_per_user`, `max_transactions_per_scenario`) and were removed by explicit product decision — no limit on how many plans or transactions an account can hold.
 
@@ -35,6 +36,10 @@ The machine already has PostgreSQL 18 running locally (confirmed listening on po
 
 Nothing secret is committed to the repo. Locally that means `.env` is gitignored and holds the JWT secret and the local database credentials. When this moves toward staging/production, secrets move to a managed secret store — that migration is out of scope for now and tracked as a deferred item, not solved today.
 
-## 5. What's deliberately not here yet
+## 5. Profile photo storage (local disk — explicitly throwaway)
+
+Uploaded profile photos (`PATCH /me/settings`'s `avatar_base64`) are written under `media_root/avatars/` and served back through an unauthenticated static mount (`/static/avatars/<uuid>.<ext>`, `app/main.py`). Filenames are random UUIDs, never derived from the user id, so the lack of auth on that route doesn't let anyone enumerate other users' photos — same posture as any public avatar host. **This is a deliberate Phase 1-only choice, not a permanent architecture**: local disk works because there's a single process on a single machine right now (the same reasoning behind the in-memory rate limiter, §12 open-questions), but it does not survive most real hosting, which typically has an ephemeral or non-shared filesystem. Moving to real object storage (S3-compatible or similar) is expected before or during whatever deployment eventually happens — tracked in `12-open-questions-and-future-hardening.md` §9 item 8.
+
+## 6. What's deliberately not here yet
 
 No Docker Compose file defining a Postgres service — the existing local instance fills that role directly. No cloud-specific configuration (AWS Secrets Manager, SSM) — those only become relevant once we plan an actual deployment, which is out of scope for this build plan.

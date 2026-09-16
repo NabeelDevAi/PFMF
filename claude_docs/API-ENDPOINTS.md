@@ -6,7 +6,7 @@ For the full endpoint index (every endpoint that exists, whether or not it's bee
 
 **Status legend:**
 - ✅ **Verified** — walked through against a specific Figma screen, contract below is exact and tested.
-- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§11) so nothing is forgotten; full contract lands here once its turn comes.
+- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§12) so nothing is forgotten; full contract lands here once its turn comes.
 
 ---
 
@@ -67,7 +67,7 @@ Every non-2xx response has this shape:
 - **`message_en`** / **`message_ar`** are ready-to-display text, generated server-side. Pick one by the phone's system language — no client-side translation table needed. **Caveat: the Arabic text is a first-pass machine draft, not yet reviewed by a native speaker** — expect it to be swapped for reviewed copy later; the `code` and the response shape itself will not change when that happens.
 - **`params`** gives structured detail for the few codes that carry it (e.g. `{"field": "name"}` for a missing-field validation error) — not meant to be interpolated into the message text.
 
-Full error code reference: §12 below.
+Full error code reference: §13 below.
 
 ### 3.2 Action-confirmation response shape
 
@@ -476,7 +476,61 @@ Already ranked by impact server-side (largest absolute contribution first) — r
 
 ---
 
-## 11. Full endpoint index (status of every endpoint that exists)
+## 11. Profile — name & photo ✅ Verified
+
+**Figma screen:** Profile (avatar, "Change photo", Full Name, Email, Save changes).
+
+**Everything on this screen — name and photo together — goes through the same call already covered in §9.6's brief mention: `PATCH /me/settings`.** There is deliberately no separate upload endpoint for the photo; it's one more optional field on the same request that already handles `display_name`/`currency_code`/`locale`.
+
+### 11.1 Request
+
+```json
+{
+  "display_name": "Muhammad",
+  "avatar_base64": "iVBORw0KGgoAAAANSUhEUgAA..."
+}
+```
+
+- **`avatar_base64`** — the raw base64-encoded image bytes. A `data:image/png;base64,...` prefix is also accepted and stripped automatically — send whichever your image picker hands you, no need to strip it client-side.
+- **`remove_avatar: true`** — clears the photo back to none (deletes the stored file). Don't send this alongside `avatar_base64` in the same request; `remove_avatar` wins if both are present.
+- Every field is optional/patch-style, same as every other call to this endpoint — send only what changed. "Save changes" on this screen in practice only ever sends `display_name` and, if the user tapped "Change photo," `avatar_base64`.
+- **Email is not sent here at all — it's read-only.** There is no way to change an account's email in Phase 1 (decided explicitly: no verification flow exists without an email provider, and re-locking it down after account creation was simpler than building a real change-email flow around that gap). Render the Email field as **display-only**, never submit it.
+
+### 11.2 Response
+
+Same `MeOut`/`SettingsOut` shape as everywhere else this endpoint appears. The new field:
+
+```json
+{
+  "settings": {
+    "display_name": "Muhammad",
+    "avatar_url": "/static/avatars/e39c420b-448e-4f3c-bc67-3acf32e44cae.png",
+    "currency_code": "SAR",
+    "locale": "en",
+    "current_balance_minor": 0,
+    "balance_as_of": "2026-09-16"
+  }
+}
+```
+
+**`avatar_url` is `null` until a photo is ever uploaded, then a relative path** — not a full URL. Prepend your app's own configured base host (the same one from §1, **without** the `/v1` suffix — this route isn't versioned, it's a static file mount, not part of the JSON API). E.g. base `http://10.0.2.2:8000` + `avatar_url` → `http://10.0.2.2:8000/static/avatars/e39c420b-....png`. The route is unauthenticated (no `Authorization` header needed to load the image itself) — anyone with the exact URL can view it, but filenames are random UUIDs, never sequential or derived from the user id, so there's nothing to enumerate.
+
+### 11.3 Errors
+
+| `code` | HTTP | When |
+|---|---|---|
+| `avatar.invalid_image` | 422 | The bytes don't start with a recognized image signature (JPEG/PNG/WEBP) — this includes a corrupt/truncated upload or base64 that fails to decode at all |
+| `avatar.too_large` | 422 | Decoded image exceeds **5MB** |
+| `validation.invalid` | 422 | Other field-level issues |
+| `resource.not_found` | 404 | Shouldn't happen for the caller's own profile — same generic guard as everywhere else |
+
+**Re-uploading replaces the old photo — the old file is deleted from disk once the new one is written successfully.** A rejected upload (wrong format, too large) never touches the existing photo; validation happens before anything is written or deleted.
+
+**Storage note, worth knowing even though it doesn't change the contract:** this is local-disk storage on whichever machine runs the backend, explicitly acknowledged as a Phase 1-only choice — it will need to move to real object storage the moment this runs somewhere with an ephemeral or non-shared filesystem (most real hosting). Nothing about the request/response shape above should change when that happens; only what `avatar_url` resolves to.
+
+---
+
+## 12. Full endpoint index (status of every endpoint that exists)
 
 Detailed contracts for these land above (or in their own section) once their Figma screen is walked through. Method/path/purpose here is accurate and already fully built+tested server-side — see `backend-plan/08-api-endpoints-plan.md` for the internal version of this same table if you need something ahead of its screen's turn.
 
@@ -487,7 +541,7 @@ Detailed contracts for these land above (or in their own section) once their Fig
 | Auth | `POST /auth/refresh` | ✅ §4 |
 | Auth | `POST /auth/logout` | ✅ §4 |
 | Me / Settings | `GET /me` | ✅ §5 |
-| Me / Settings | `PATCH /me/settings` | ⏳ |
+| Me / Settings | `PATCH /me/settings` | ✅ §11 |
 | Me / Settings | `PUT /me/balance` | ✅ §5 |
 | Me / Settings | `PATCH /me/password` | ⏳ |
 | Me / Settings | `DELETE /me` | ⏳ |
@@ -518,7 +572,7 @@ Detailed contracts for these land above (or in their own section) once their Fig
 
 ---
 
-## 12. Error code reference (all codes, every endpoint)
+## 13. Error code reference (all codes, every endpoint)
 
 Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — this table exists for the `code` values themselves, to branch client logic on.
 
@@ -533,6 +587,8 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 | `balance.as_of_in_future` | 422 | `PUT /me/balance`'s as-of date is later than today |
 | `balance.as_of_too_old` | 422 | `PUT /me/balance`'s as-of date is more than 5 years ago |
 | `balance.negative_not_allowed` | 422 | `PUT /me/balance`'s amount is negative |
+| `avatar.invalid_image` | 422 | `PATCH /me/settings`'s `avatar_base64` isn't a recognized image format (or fails to decode at all) |
+| `avatar.too_large` | 422 | `PATCH /me/settings`'s decoded `avatar_base64` exceeds the size limit (5MB) |
 | `validation.required` | 422 | A required field is missing (`params.field` names it) |
 | `validation.invalid` | 422 | Generic field validation failure |
 | `transaction.amount_not_positive` | 422 | Amount is zero or negative |
@@ -557,7 +613,7 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 
 ---
 
-## 13. Open items that affect integration
+## 14. Open items that affect integration
 
 - **Arabic text is unreviewed** (§3.1) — display it, but expect it to be replaced with native-speaker-reviewed copy later without any contract change.
 - **No forgot/reset-password-via-email in this phase** — a user who forgets their password has no self-service recovery until Phase 2; the only password change path is `PATCH /me/password` while logged in (requires the current password). Design the Login screen's "forgot password?" affordance accordingly — either omit it for now or show it as "coming soon."

@@ -2,7 +2,7 @@
 
 ## 1. Source of truth
 
-The DDL in `phase1-system-architecture.md` §5 is authoritative for every table it defines: `users`, `user_settings`, `categories`, `scenarios`, `transactions`, `scenario_overlays`, `refresh_tokens` (§5.2 addendum), plus the enums `direction`, `recurrence`, `overlay_op`. This plan does not redesign that schema — it only sequences building it and names one addition it's missing.
+The DDL in `phase1-system-architecture.md` §5 is authoritative for every table it defines: `users`, `user_settings` (including `avatar_filename`, §5.3 addendum), `categories`, `scenarios`, `transactions`, `scenario_overlays`, `refresh_tokens` (§5.2 addendum), plus the enums `direction`, `recurrence`, `overlay_op`. This plan does not redesign that schema — it only sequences building it and names one addition it's missing.
 
 ## 2. The one schema addition this build introduces: refresh tokens
 

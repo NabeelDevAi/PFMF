@@ -241,6 +241,16 @@ CREATE INDEX ix_refresh_tokens_token_hash ON refresh_tokens(token_hash);
 
 Note: migration `0014` (Phase 1 §11 item 8 — removing the forgot/reset-password-via-email flow) drops the unrelated `password_reset_tokens` table, which was never part of this document's schema to begin with; `refresh_tokens` above is unaffected by that change.
 
+### 5.3 Addendum: profile photo column
+
+`user_settings` gains one nullable column, added post-build once the Profile screen (screen-flow F2) needed it — folded back into the DDL above for the same reason as §5.2. Matches migration `0016`:
+
+```sql
+ALTER TABLE user_settings ADD COLUMN avatar_filename TEXT;
+```
+
+Stores only a filename, never a URL or path — `avatar_url` is a computed property (`app/db/models/user_settings.py`), not a second stored column, built from `avatar_filename` at read time. No separate upload endpoint: set via the existing `PATCH /v1/me/settings` (an `avatar_base64` field), by explicit product decision — see `backend-plan/02-configuration-and-environment.md` §5 for the local-disk storage choice and `12-open-questions-and-future-hardening.md` §9 item 8 for the full record.
+
 ---
 
 ## 6. Scenario resolution

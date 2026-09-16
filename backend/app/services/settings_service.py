@@ -5,6 +5,7 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.core.avatar_storage import delete_avatar, save_avatar
 from app.core.config import get_settings
 from app.core.errors import APIError
 from app.db.models.user_settings import UserSettings
@@ -32,6 +33,8 @@ class SettingsService:
         display_name: str | None = None,
         currency_code: str | None = None,
         locale: str | None = None,
+        avatar_base64: str | None = None,
+        remove_avatar: bool = False,
     ) -> UserSettings:
         settings = self.get(user_id)
         if display_name is not None:
@@ -40,6 +43,16 @@ class SettingsService:
             settings.currency_code = currency_code
         if locale is not None:
             settings.locale = locale
+        if remove_avatar:
+            delete_avatar(settings.avatar_filename)
+            settings.avatar_filename = None
+        elif avatar_base64 is not None:
+            # Validate and write the new file *before* touching the old
+            # one -- a rejected/failed upload must never destroy a photo
+            # that was already working.
+            new_filename = save_avatar(avatar_base64)
+            delete_avatar(settings.avatar_filename)
+            settings.avatar_filename = new_filename
         self.repo.save(settings)
         return settings
 
