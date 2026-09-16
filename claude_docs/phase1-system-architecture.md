@@ -217,6 +217,30 @@ The Base Plan is a row in `scenarios` with `is_base = true`. Its transactions li
 - **Duplicating** copies overlay rows and scenario-local transaction rows, with fresh ids. No parent link is created, so source and duplicate are siblings (D-13). Duplicating Base produces a scenario with **zero** overlays and **zero** own transactions — it inherits everything. Copying Base's rows as scenario-local would double every item; case 25.16 exists to catch that.
 - **Archiving** sets `archived_at` and touches nothing else (D-12). The scenario's overlays continue to resolve against live Base rows, so a restore picks up every Base change made while it was away.
 
+### 5.2 Addendum: refresh tokens
+
+Not part of this document's original DDL above — added post-build, once the auth design (§ tokens) was actually implemented, per `backend-plan/03-database-schema-and-migrations.md` §2. Folded back in here so this document stays the actual source of truth for the schema, rather than the backend plan silently diverging from it. Matches migration `0006` exactly.
+
+```sql
+CREATE TABLE refresh_tokens (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  family_id   UUID NOT NULL,   -- lineage: revoking one revokes every token
+                                -- descended from the same login
+  token_hash  TEXT NOT NULL UNIQUE,   -- never the raw token value
+  used_at     TIMESTAMPTZ,     -- set on rotation; reuse after this is set
+                                -- is the theft signal that revokes the family
+  revoked_at  TIMESTAMPTZ,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX ix_refresh_tokens_family_id ON refresh_tokens(family_id);
+CREATE INDEX ix_refresh_tokens_token_hash ON refresh_tokens(token_hash);
+```
+
+Note: migration `0014` (Phase 1 §11 item 8 — removing the forgot/reset-password-via-email flow) drops the unrelated `password_reset_tokens` table, which was never part of this document's schema to begin with; `refresh_tokens` above is unaffected by that change.
+
 ---
 
 ## 6. Scenario resolution

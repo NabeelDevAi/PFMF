@@ -2,21 +2,19 @@
 
 ## 1. Source of truth
 
-The DDL in `phase1-system-architecture.md` §5 is authoritative for every table it defines: `users`, `user_settings`, `categories`, `scenarios`, `transactions`, `scenario_overlays`, plus the enums `direction`, `recurrence`, `overlay_op`. This plan does not redesign that schema — it only sequences building it and names one addition it's missing.
+The DDL in `phase1-system-architecture.md` §5 is authoritative for every table it defines: `users`, `user_settings`, `categories`, `scenarios`, `transactions`, `scenario_overlays`, `refresh_tokens` (§5.2 addendum), plus the enums `direction`, `recurrence`, `overlay_op`. This plan does not redesign that schema — it only sequences building it and names one addition it's missing.
 
 ## 2. The one schema addition this build introduces: refresh tokens
 
-The architecture doc's DDL has no table for refresh tokens, but the auth design (both docs) requires one: refresh tokens are opaque, stored **hashed**, rotated on every use, and a reused/already-consumed token must revoke its whole family. That needs persistence — a table isn't optional here, it's implied by the requirement and simply wasn't drawn.
+**Resolved — folded back into `phase1-system-architecture.md` §5.2 as an addendum.** The architecture doc's original DDL had no table for refresh tokens, but the auth design (both docs) required one: refresh tokens are opaque, stored **hashed**, rotated on every use, and a reused/already-consumed token must revoke its whole family. That needed persistence — a table wasn't optional here, it was implied by the requirement and simply wasn't drawn.
 
-Plan-level shape (no DDL here, just what it must capture, so the migration work is scoped before it's written):
+What it captures (built in migration `0006`, matches the architecture doc's addendum exactly):
 - Which user it belongs to.
 - A hash of the token value (never the raw value).
 - A family/lineage identifier, so revoking one compromised token can revoke every token descended from it.
 - Whether it has been used/rotated already (to detect reuse).
 - Issued-at and expiry timestamps.
 - Ownership scoping applies here exactly like every other table: lookups are always scoped by `user_id`.
-
-This gets its own migration, reviewed the same way as everything else, and is called out explicitly in the open-questions doc as a deviation from the architecture doc worth folding back into that document once built.
 
 ## 3. Migration tooling and approach
 
