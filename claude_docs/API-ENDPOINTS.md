@@ -6,7 +6,7 @@ For the full endpoint index (every endpoint that exists, whether or not it's bee
 
 **Status legend:**
 - ✅ **Verified** — walked through against a specific Figma screen, contract below is exact and tested.
-- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§15) so nothing is forgotten; full contract lands here once its turn comes.
+- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§17) so nothing is forgotten; full contract lands here once its turn comes.
 
 ---
 
@@ -67,7 +67,7 @@ Every non-2xx response has this shape:
 - **`message_en`** / **`message_ar`** are ready-to-display text, generated server-side. Pick one by the phone's system language — no client-side translation table needed. **Caveat: the Arabic text is a first-pass machine draft, not yet reviewed by a native speaker** — expect it to be swapped for reviewed copy later; the `code` and the response shape itself will not change when that happens.
 - **`params`** gives structured detail for the few codes that carry it (e.g. `{"field": "name"}` for a missing-field validation error) — not meant to be interpolated into the message text.
 
-Full error code reference: §16 below.
+Full error code reference: §18 below.
 
 ### 3.2 Action-confirmation response shape
 
@@ -339,7 +339,7 @@ The fields on every one of these screens (name, amount, category, schedule, note
 
 - **"Save changes"** → `PATCH /transactions/{id}`. Every field is optional/patch-style — send only what changed. Confirmed: name, `amount_minor`, `category_id`, `recurrence`, `notes` all update correctly; `end_date` has an explicit `unset_end_date: true` flag to clear it back to open-ended (sending `end_date: null` is not read as "clear it" — only `unset_end_date` is).
 - **The Expense/Income toggle is correctly greyed out in your mockup — this matches real backend behavior.** `direction` is accepted in the request body only to detect a change and reject it: sending a different `direction` than the row already has returns `transaction.direction_immutable` (422), never a silent no-op or a value flip. Don't let the client send `direction` at all here unless it's unchanged.
-- **"Delete"** → `DELETE /transactions/{id}` — the action-confirmation shape (§3.2), `transaction.deleted`. The caption under your Delete button ("This removes it from your Base Plan and every plan that inherits it") is accurate for a Base row: deleting it cascades to every overlay any derived plan had on it (`ON DELETE CASCADE`). **Before calling this on a Base row**, consider calling `GET /transactions/{id}/dependents` first (⏳, not yet given its own screen pass) — it returns which plans have an overlay on this transaction, which is what a real confirmation dialog naming affected plans would need; your mockup currently only shows static caption text, not a dynamic per-plan warning.
+- **"Delete"** → `DELETE /transactions/{id}` — the action-confirmation shape (§3.2), `transaction.deleted`. The caption under your Delete button ("This removes it from your Base Plan and every plan that inherits it") is accurate for a Base row: deleting it cascades to every overlay any derived plan had on it (`ON DELETE CASCADE`). **Before calling this on a Base row**, consider calling `GET /transactions/{id}/dependents` first (§8.6) — it returns which plans have an overlay on this transaction, which is what a real confirmation dialog naming affected plans would need; your mockup currently only shows static caption text, not a dynamic per-plan warning.
 
 **Errors on both:** `resource.not_found` (row doesn't exist or belongs to another user — this also covers the case where the id given belongs to an *inherited/overridden* row, since those aren't rows in this table at all; the client must never reach these two routes for anything but an `own`/`added` origin — see §7's origin table).
 
@@ -377,35 +377,107 @@ The sheet's caption about a 29th–31st start date "falling on the last day in s
 
 ### 8.5 Category picker (as used from this screen)
 
-`GET /categories` returns system categories (`user_id: null`, translated client-side by `key`) plus the caller's own. **The system set was just replaced to match this exact picker** (migration `0015`) — 12 keys: income `salary`, `freelance`, `business`; expense `housing`, `loans`, `bills`, `subscriptions`, `everyday`, `transport`, `fuel`, `health`, `other`. **The picker doesn't filter by the transaction's own direction** — your mockup shows income and expense categories together in one grid for an expense transaction, and that matches the backend exactly: nothing rejects an expense transaction using an income-keyed category or vice versa. Full `GET`/`POST`/`PATCH`/`DELETE /categories` request/response contracts are still ⏳, held for the Categories screen's own turn.
+`GET /categories` returns system categories (`user_id: null`, translated client-side by `key`) plus the caller's own. **The system set was just replaced to match this exact picker** (migration `0015`) — 12 keys: income `salary`, `freelance`, `business`; expense `housing`, `loans`, `bills`, `subscriptions`, `everyday`, `transport`, `fuel`, `health`, `other`. **The picker doesn't filter by the transaction's own direction** — your mockup shows income and expense categories together in one grid for an expense transaction, and that matches the backend exactly: nothing rejects an expense transaction using an income-keyed category or vice versa. Full `GET`/`POST`/`PATCH`/`DELETE /categories` request/response contracts are in §9.
+
+### 8.6 Before deleting a Base row — `GET /transactions/{id}/dependents`
+
+**No dedicated Figma screen** — this is what the Delete button's caption (§8.2, "This removes it from your Base Plan and every plan that inherits it") should call *before* showing that confirmation, to turn a static warning into a specific one. Only meaningful on a Base (`origin: "own"`) row — a non-Base transaction can never be an overlay target (overlays only ever point at Base rows), so calling this on an `added` row always returns `count: 0`, not an error; no need to special-case which rows show it.
+
+**Request:** no body, just the transaction id in the path.
+
+**Response:**
+```json
+{
+  "count": 1,
+  "scenarios": [
+    {"id": "3280cbe0-88c8-4eeb-a877-5ee5b6af310d", "name": "Buy a House"}
+  ]
+}
+```
+
+- `count: 0` (empty `scenarios`) — no derived plan has touched this row; a plain "Delete this transaction?" confirmation is enough.
+- `count > 0` — name the affected plans in the confirmation ("Also affects Buy a House") instead of a generic warning — the client already has what it needs.
+
+**Verified live:** a fresh Base transaction with no overlays on it returns `count: 0`; after a derived plan overrides it, the same call returns `count: 1` with that plan's id and name.
+
+**Errors:** `resource.not_found` (row doesn't exist or belongs to another user).
 
 ---
 
-## 9. Plans screen — full lifecycle, plus the list's summary data ✅ Verified
+## 9. Categories ✅ Verified
+
+**No dedicated Figma screen** — categories only ever appear as the picker sub-component inside Add/Edit Transaction (§8.5). Documented fully here anyway since the endpoints are already built and fully tested; nothing about them is waiting on a screen that doesn't exist.
+
+### 9.1 List — `GET /categories`
+
+Returns every category the caller can use: system categories (`user_id: null`, `key` set, `name: null` — translated client-side by `key`, §8.5's 12-key set) plus the caller's own (`user_id` set, `name` set, `key: null`).
+
+```json
+{
+  "items": [
+    {"id": "4c40eade-...", "user_id": null, "key": "salary", "name": null, "direction": "income", "sort_order": 0},
+    {"id": "c89986d6-...", "user_id": "2bc8b642-...", "key": null, "name": "Side Hustle", "direction": "income", "sort_order": 0}
+  ]
+}
+```
+
+`sort_order` is the system categories' intended display order **within each `direction`**; a user-created category always gets `sort_order: 0` (it doesn't carry a meaningful position) — sort by `direction` then `sort_order` to match the backend's own ordering, or render user categories after the system ones in creation order instead, whichever reads better in the picker.
+
+### 9.2 Create — `POST /categories`
+
+```json
+{"name": "Side Hustle", "direction": "income"}
+```
+
+Always creates a **user** category — `key` is never accepted here; system categories aren't user-creatable at all, they only exist via the seed migration (§8.5). **Success — `201 Created`:** a `CategoryOut` with `user_id` set to the caller, `key: null`.
+
+**Errors:** `validation.required` (missing `name`/`direction`).
+
+### 9.3 Rename / change direction — `PATCH /categories/{id}`
+
+```json
+{"name": "Side Business"}
+```
+
+Both fields optional/patch-style. **Only works on a category the caller owns** — a system category, or another user's, is `resource.not_found` (404), not a distinguishable "forbidden" (the same ownership convention as everywhere else in this API). **Verified live:** patching a system category's id returns `404`, even though `GET /categories` happily lists it right alongside the caller's own.
+
+**Errors:** `resource.not_found`.
+
+### 9.4 Delete — `DELETE /categories/{id}`
+
+Action-confirmation shape (§3.2), `category.deleted`. Same ownership rule as patch — a system category or another user's is `resource.not_found`.
+
+**Rejected if still in use:** `category.in_use` (409) if any transaction's `category_id` or any overlay's `ovr_category_id` still points at it. **Verified live:** created a category, used it on a transaction, and the delete was rejected until that reference was removed. Surface this as "this category is being used," not a silent failure — there's no dependents-style breakdown for categories the way there is for transactions (§8.6); the error code is the only signal.
+
+**Errors:** `resource.not_found`, `category.in_use`.
+
+---
+
+## 10. Plans screen — full lifecycle, plus the list's summary data ✅ Verified
 
 **Figma screens:** Plans list, Plan setup sheet (rename / archive / duplicate / delete).
 
-### 9.1 List — `GET /scenarios?include_archived=`
+### 10.1 List — `GET /scenarios?include_archived=`
 
 `items`: one `ScenarioOut` per plan — `id`, `name`, `is_base`, `current_balance_override_minor`, `archived_at`, `created_at`, `updated_at`. Default (`include_archived` omitted or `false`) excludes archived plans; `?include_archived=true` includes them too, distinguishable by a non-null `archived_at`.
 
-### 9.2 Rename — `PATCH /scenarios/{id}`
+### 10.2 Rename — `PATCH /scenarios/{id}`
 
 `{"name": "Buy a House v2"}`. Verified: renaming never touches any balance — the sheet's caption ("Renaming does not change any of its numbers") is accurate. **Errors:** `scenario.name_taken` (409), `validation.invalid` (422, blank/whitespace name — same rule as plan creation, §6), `resource.not_found`.
 
-### 9.3 Archive / Unarchive
+### 10.3 Archive / Unarchive
 
 `POST /scenarios/{id}/archive` sets `archived_at`; `POST /scenarios/{id}/unarchive` clears it back to `null`. Both take no body. Verified round-trip, plus: **Base rejects archiving** with `scenario.base_immutable` (409 — matches the "NEVER DELETABLE" badge, which covers archiving too, not just deleting), and **unarchiving a plan that isn't archived** rejects with `scenario.not_archived` (409). An archived plan is excluded from the default list, the compare picker, and duplicate-source eligibility (`scenario.archived`, 409, if attempted anyway).
 
-### 9.4 Duplicate — `POST /scenarios/{id}/duplicate`
+### 10.4 Duplicate — `POST /scenarios/{id}/duplicate`
 
 `{"name": "optional — omit for '<source name> (copy)'"}`. **Verified the sheet's caption word for word** ("The copy keeps live Base inheritance, plus all overrides, removals and plan-only items."): duplicated a plan with one override, one exclude ("removal"), and one added transaction — the copy reproduced all three exactly, while everything untouched kept following Base live (the normal inheritance behavior, unaffected by the copy). **Errors:** `scenario.archived` (409, can't duplicate an archived source — restore it first), `scenario.name_taken`/`validation.invalid` (same name rules as create), `resource.not_found`.
 
-### 9.5 Delete — `DELETE /scenarios/{id}`
+### 10.5 Delete — `DELETE /scenarios/{id}`
 
 Action-confirmation shape (§3.2), `scenario.deleted`. **Base rejects with `scenario.base_immutable`** (409) — confirms the "NEVER DELETABLE" badge.
 
-### 9.6 Deriving the list card's numbers (Balance at 10Y, vs Base, "X modified · Y removed · Z added") — no new endpoint, combine two existing calls
+### 10.6 Deriving the list card's numbers (Balance at 10Y, vs Base, "X modified · Y removed · Z added") — no new endpoint, combine two existing calls
 
 `horizon=120` is exactly **10 years** (the backend's `max_horizon_months` is 120) — that's the number to request for "Balance at 10Y" everywhere on this screen.
 
@@ -416,9 +488,9 @@ Action-confirmation shape (§3.2), `scenario.deleted`. **Base rejects with `scen
 - **Why two calls, not one:** `compare`'s own `drivers` list (tagged `added`/`removed`/`modified`) looks like a shortcut for the same three counts, but it's the wrong source — a driver only appears there when the change actually moves the total. **Verified live:** overriding a transaction's *name only* (same amount) produced **zero drivers** in `compare`, while `transactions?filter=all` correctly still showed it as `origin: "overridden"`. Since that same row shows a `Modified` badge everywhere else in the app (§7), the two counts must agree — use `filter=all`'s origin counts for this line, not `compare`'s drivers.
 - This means rendering the full Plans list costs **1 call for Base's card, plus 2 calls per other plan.** There's deliberately no dedicated list-summary/aggregation endpoint — matches the architecture's standing "no dashboard, no charts endpoint" rule (every number on every screen comes from the forecast/compare/transactions payloads that already exist for other reasons). Worth revisiting only if a user's plan count grows large enough that this becomes a lot of requests to render one screen — there's no cap on plan count at all (see `backend-plan/12-open-questions-and-future-hardening.md`).
 
-Note: this section only verifies the specific fields above for this exact purpose — the full forecast/compare contract (month rows, full driver detail, for actual chart/dashboard screens) is still ⏳, held for the Forecast and Compare screens' own turns.
+Note: this section only verifies the specific fields above for this exact purpose — the full forecast/compare contract is covered in §11 (Compare) and §16 (Forecast).
 
-### 9.7 Error code summary for this screen
+### 10.7 Error code summary for this screen
 
 | `code` | HTTP | When |
 |---|---|---|
@@ -429,17 +501,23 @@ Note: this section only verifies the specific fields above for this exact purpos
 | `validation.invalid` | 422 | Blank/whitespace name |
 | `resource.not_found` | 404 | Plan doesn't exist or belongs to another user |
 
+### 10.8 Single plan detail — `GET /scenarios/{id}`
+
+**No dedicated Figma screen** — the Plans list (§10.1) already returns every field a plan card needs, so nothing shown so far calls this on its own. Same `ScenarioOut` shape as the create response (§6). Documented in case a future screen wants one plan's detail without refetching the whole list.
+
+**Errors:** `resource.not_found` — doesn't exist, or belongs to another user. **Verified live:** a second user's access token against the first user's Base Plan id returns `404`, not `403` — same information-leak-avoidance rule as everywhere else in this API (§6's `scenario.name_taken` note, resource.not_found's own entry in §18).
+
 ---
 
-## 10. Compare plans ✅ Verified
+## 11. Compare plans ✅ Verified
 
 **Figma screens:** Compare plans (picker), Compare results.
 
-### 10.1 The picker's per-plan "+SAR X/mo" preview
+### 11.1 The picker's per-plan "+SAR X/mo" preview
 
 Shown next to each non-Base plan before you've even picked which two to compare (Base's row shows "Your real numbers" instead — nothing to compute there). **This is not a comparison at all** — it's that plan's own standalone average monthly cash flow, independent of Base: call `GET /scenarios/{id}/forecast?horizon=` (whatever the currently-selected horizon pill is) for each plan shown, and divide `totals.net_minor / horizon_months`. Verified live: sign and magnitude behave exactly as expected for a plan whose own income comfortably exceeds its own expenses.
 
-### 10.2 Running the comparison — `GET /forecast/compare?a=&b=&horizon=&anchor=`
+### 11.2 Running the comparison — `GET /forecast/compare?a=&b=&horizon=&anchor=`
 
 - `a`, `b` — the two plan ids ("Pick exactly two plans"). Order doesn't matter for validation, but the response's `a`/`b` keys mirror whichever you passed — keep Plan A/Plan B on the client side consistent with which id went where.
 - `horizon` — the four pills map directly: 1Y→`12`, 3Y→`36`, 5Y→`60`, 10Y→`120`.
@@ -447,7 +525,7 @@ Shown next to each non-Base plan before you've even picked which two to compare 
 
 **Errors:** `compare.same_scenario` (422, A and B are the same plan — enforce "pick two *different* plans" client-side too, for instant feedback), `scenario.archived` (409, either operand is archived — archived plans should already be excluded from this picker's list, e.g. by calling `GET /scenarios` without `include_archived`), `forecast.invalid_horizon` (422), `resource.not_found`.
 
-### 10.3 "Compare results" — mapping the response to the screen
+### 11.3 "Compare results" — mapping the response to the screen
 
 | Screen element | Field |
 |---|---|
@@ -459,7 +537,7 @@ Shown next to each non-Base plan before you've even picked which two to compare 
 | Chart, dashed line | `b.months[].closing_balance_minor`, in order |
 | "Month by month" table | `a.months[]`/`b.months[]` (or `deltas[]` for the DIFF column) — pick whichever rows you want to show (e.g. every 12th for a yearly table); the full monthly array is always there, this screen just doesn't render every row |
 
-### 10.4 "What's driving this" — the `drivers` list
+### 11.4 "What's driving this" — the `drivers` list
 
 Already ranked by impact server-side (largest absolute contribution first) — render in the order given, no client-side sorting needed.
 
@@ -472,17 +550,17 @@ Already ranked by impact server-side (largest absolute contribution first) — r
 
 **Why `active_months`, not `horizon_months`:** a driver's `total_contribution_minor` is summed over however many months it actually occurred in — for a mortgage added 2 months into a 120-month comparison, that's 118 months, not 120. Dividing by the full horizon dilutes the figure (this exact case showed SAR 8,850/mo instead of its real SAR 9,000/mo before this was fixed). `active_months` is the divisor that gives the item's true, steady per-occurrence rate. Verified live with exactly this scenario.
 
-**Errors on this response:** same as §10.2 (this is one call, not two — `drivers` and `deltas` both come back together with `a`/`b`).
+**Errors on this response:** same as §11.2 (this is one call, not two — `drivers` and `deltas` both come back together with `a`/`b`).
 
 ---
 
-## 11. Profile — name & photo ✅ Verified
+## 12. Profile — name & photo ✅ Verified
 
 **Figma screen:** Profile (avatar, "Change photo", Full Name, Email, Save changes).
 
-**Everything on this screen — name and photo together — goes through the same call already covered in §9.6's brief mention: `PATCH /me/settings`.** There is deliberately no separate upload endpoint for the photo; it's one more optional field on the same request that already handles `display_name`/`currency_code`/`locale`.
+**Everything on this screen — name and photo together — goes through the same call already covered in §10.6's brief mention: `PATCH /me/settings`.** There is deliberately no separate upload endpoint for the photo; it's one more optional field on the same request that already handles `display_name`/`currency_code`/`locale`.
 
-### 11.1 Request
+### 12.1 Request
 
 ```json
 {
@@ -496,7 +574,7 @@ Already ranked by impact server-side (largest absolute contribution first) — r
 - Every field is optional/patch-style, same as every other call to this endpoint — send only what changed. "Save changes" on this screen in practice only ever sends `display_name` and, if the user tapped "Change photo," `avatar_base64`.
 - **Email is not sent here at all — it's read-only.** There is no way to change an account's email in Phase 1 (decided explicitly: no verification flow exists without an email provider, and re-locking it down after account creation was simpler than building a real change-email flow around that gap). Render the Email field as **display-only**, never submit it.
 
-### 11.2 Response
+### 12.2 Response
 
 Same `MeOut`/`SettingsOut` shape as everywhere else this endpoint appears. The new field:
 
@@ -515,7 +593,7 @@ Same `MeOut`/`SettingsOut` shape as everywhere else this endpoint appears. The n
 
 **`avatar_url` is `null` until a photo is ever uploaded, then a relative path** — not a full URL. Prepend your app's own configured base host (the same one from §1, **without** the `/v1` suffix — this route isn't versioned, it's a static file mount, not part of the JSON API). E.g. base `http://10.0.2.2:8000` + `avatar_url` → `http://10.0.2.2:8000/static/avatars/e39c420b-....png`. The route is unauthenticated (no `Authorization` header needed to load the image itself) — anyone with the exact URL can view it, but filenames are random UUIDs, never sequential or derived from the user id, so there's nothing to enumerate.
 
-### 11.3 Errors
+### 12.3 Errors
 
 | `code` | HTTP | When |
 |---|---|---|
@@ -530,7 +608,37 @@ Same `MeOut`/`SettingsOut` shape as everywhere else this endpoint appears. The n
 
 ---
 
-## 12. Settings screen ✅ Verified
+## 13. Change password ✅ Verified
+
+**Figma screen:** Settings → Change password (referenced from §14; this is its full contract).
+
+### `PATCH /me/password`
+
+The **only** way to change a password in Phase 1 — there is no forgot/reset-password-via-email flow (§19 open items), so this always requires an active, authenticated session.
+
+**Request:**
+```json
+{
+  "current_password": "correct-horse",
+  "new_password": "brand-new-password"
+}
+```
+
+**Success — `200 OK`:** action-confirmation shape (§3.2), `auth.password_changed`.
+
+**Errors:**
+
+| `code` | HTTP | When |
+|---|---|---|
+| `auth.current_password_incorrect` | 422 | `current_password` doesn't match — **never** `auth.invalid_credentials`, a distinct code specifically for this endpoint |
+| `auth.weak_password` | 422 | `new_password` fails the same policy as registration (§4 — minimum 8 characters) |
+| `validation.required` | 422 | Either field missing |
+
+**Every other session is revoked the instant this succeeds** — every refresh-token family for the account, not just the one that made this request. **Verified live:** immediately after a successful change, the refresh token that authenticated the very request that changed the password no longer works (`auth.token_invalid`), the old password stops working for login (`auth.invalid_credentials`), and the new one succeeds. **Design the client for this** — after a successful change, don't try to keep the current session alive; send the user back through login with the new password.
+
+---
+
+## 14. Settings screen ✅ Verified
 
 **Figma screen:** Settings (Profile card, Currency, Language, Opening balance, Change password, Export data, Reset data, Delete account, About, Log out).
 
@@ -538,38 +646,38 @@ Every row on this screen maps to something already covered elsewhere in this doc
 
 | Row | Backend | Notes |
 |---|---|---|
-| Profile card / **Profile** | §11 | Name + photo. Tapping through opens the Profile screen already covered there. |
-| **Currency** | — | **Frontend-only.** The currency list is a static client-side picker (§10.1 already covers `currency_code` itself — free-form, no server-side whitelist, by earlier explicit decision). Selecting one calls `PATCH /me/settings` with `currency_code` — no new contract. |
+| Profile card / **Profile** | §12 | Name + photo. Tapping through opens the Profile screen already covered there. |
+| **Currency** | — | **Frontend-only.** The currency list is a static client-side picker (§11.1 already covers `currency_code` itself — free-form, no server-side whitelist, by earlier explicit decision). Selecting one calls `PATCH /me/settings` with `currency_code` — no new contract. |
 | **Language** | — | **Frontend-only** in the same sense — which languages are offered is a client concern. Selecting one calls `PATCH /me/settings` with `locale` (`"en"`/`"ar"`) — already built, no new contract. This is also what the server uses to pick `message_en` vs. `message_ar` in every response (§3.1). |
 | **Opening balance** | §5 (`PUT /me/balance`) | Re-verified live for this screen: same endpoint as the initial onboarding entry, works identically from Settings. **Naming note, not a backend issue:** the mockup labels this "Opening balance," but the screen-flow spec's own signed rule (§10, "the one naming rule in the product with a signed rule behind it") is that this figure is always called **"Current Cash Balance"** in user-facing copy, specifically *not* "opening balance" — worth a look before this ships, though nothing here blocks backend work either way; the field is `current_balance_minor` regardless of what label the screen puts next to it. |
-| **Change password** | §16's `auth.current_password_incorrect`/`auth.weak_password` (endpoint: `PATCH /me/password`, built in the password-reset-removal work) | Re-verified live: succeeds with the right current password, old sessions revoked. |
-| **Export data** | ⏳ (built, not yet given this screen's own detailed pass) | `GET /me/export?format=csv\|json` — re-verified live, both formats return correctly (`csv` → `application/zip`, `json` → `application/json`). Matches "available in two formats" exactly. |
-| **Reset data** | ⏳ (built, not yet given this screen's own detailed pass) | `DELETE /me/data` — re-verified live against this screen's exact description ("resets the account, deleting all plans and transactions and data, just keeping account info"): after reset, only the Base Plan remains (empty), every derived plan is gone, user-created categories are gone, balance resets to 0/today — but email, display name, avatar, currency, and locale are all untouched. |
+| **Change password** | ✅ §13 | Full request/response/error contract in §13 — this row used to just summarize it inline. |
+| **Export data** | ✅ (documented right here) | `GET /me/export?format=csv\|json` — re-verified live, both formats return correctly (`csv` → `application/zip`, `json` → `application/json`). Matches "available in two formats" exactly. |
+| **Reset data** | ✅ (documented right here) | `DELETE /me/data` — re-verified live against this screen's exact description ("resets the account, deleting all plans and transactions and data, just keeping account info"): after reset, only the Base Plan remains (empty), every derived plan is gone, user-created categories are gone, balance resets to 0/today — but email, display name, avatar, currency, and locale are all untouched. |
 | **Delete account** | `backend-plan/12-open-questions-and-future-hardening.md` §9 item 9 (soft delete) | `DELETE /me` — re-verified live as a **soft delete**: looks and behaves like a hard delete to the app (can't log in, every token dead immediately, same email works again on a fresh signup right away), while the row and its data physically survive on the server for a Phase 2 purge job that doesn't exist yet. Nothing for the client to do differently than it would for an actual hard delete — same call, same response, same follow-up behavior (log out / return to Sign Up). |
 | **About Horizon**, **Log out** | — | No backend involvement — About is static app info; Log out is `POST /auth/logout` (§4). |
 
 ---
 
-## 13. Home screen ✅ Verified
+## 15. Home screen ✅ Verified
 
 **Figma screen:** Home (plan switcher, greeting, Current cash balance, period selector + chart, Net cash flow / Projected balance / Outlook, Add transaction, Recent transactions).
 
 Every number on this screen comes from calls already covered elsewhere in this document. This section maps the screen to those calls and covers the one genuinely new piece: the "This Month" tab's weekly chart.
 
-### 13.1 What maps to what
+### 15.1 What maps to what
 
 | Screen element | Source |
 |---|---|
-| Plan switcher, greeting (name + photo), gear → Settings | `GET /scenarios` (§9.1), `GET /me` (§11) |
-| **Current cash balance** SAR 72,400 | `current_balance_minor` (§5/§11) |
-| **"Base Plan +SAR 9,043/mo"**, **"Net cash flow +SAR 9,043 this month"** | The **current month's** `net_minor` — `GET /scenarios/{id}/forecast`, find the row in `months[]` whose `month` equals `current_month` (both already in the payload, §9.6). Same figure both places on this screen — not a horizon-wide average. |
+| Plan switcher, greeting (name + photo), gear → Settings | `GET /scenarios` (§10.1), `GET /me` (§12) |
+| **Current cash balance** SAR 72,400 | `current_balance_minor` (§5/§12) |
+| **"Base Plan +SAR 9,043/mo"**, **"Net cash flow +SAR 9,043 this month"** | The **current month's** `net_minor` — `GET /scenarios/{id}/forecast`, find the row in `months[]` whose `month` equals `current_month` (both already in the payload, §10.6). Same figure both places on this screen — not a horizon-wide average. |
 | **"Projected balance SAR 81,443"** | The current month's `closing_balance_minor` from that same row. (Sanity check: `72,400 + 9,043 = 81,443` exactly — confirmed live.) |
 | **Outlook: Improving** | Purely client-side (M1 §11 decision, `12-open-questions-and-future-hardening.md` §8 item 4) — computed from `months[]`, no backend involvement, rule intentionally left open until this screen is actually built. |
 | Add / Forecast / Plans / Plan setup buttons | Navigation only |
 | **Recent transactions + "See all"** | `GET /scenarios/{id}/transactions` (§7) — this screen just renders the first few rows of the same list the Transactions screen shows in full |
 | **3 Months / 6 Months / 12 Months tabs** | One point per month, straight from `months[]` — no new data needed, same payload as "This Month" just read differently |
 
-### 13.2 "This Month"'s weekly chart — new: `?include_occurrences=true`
+### 15.2 "This Month"'s weekly chart — new: `?include_occurrences=true`
 
 The curved W1–W4 line needs day-dated detail a monthly total can't give you (income landing on the 1st vs. a car loan on the 5th moves the curve differently week to week). `GET /scenarios/{id}/forecast` gained an opt-in query param for exactly this:
 
@@ -577,7 +685,7 @@ The curved W1–W4 line needs day-dated detail a monthly total can't give you (i
 GET /scenarios/{id}/forecast?horizon=1&anchor=2026-09&include_occurrences=true
 ```
 
-**Default is `false` — every existing caller of this endpoint (the Plans list summary §9.6, the Compare screen §10) is completely unaffected and never pays for this data.** `GET /forecast/compare` has no equivalent param at all; its `a`/`b` always omit `occurrences` (`null`), since that screen's chart is monthly-level.
+**Default is `false` — every existing caller of this endpoint (the Plans list summary §10.6, the Compare screen §11) is completely unaffected and never pays for this data.** `GET /forecast/compare` has no equivalent param at all; its `a`/`b` always omit `occurrences` (`null`), since that screen's chart is monthly-level.
 
 **Response** — `occurrences` is `null` unless requested, otherwise a flat list, unsorted (bucket/sort client-side):
 
@@ -599,13 +707,13 @@ GET /scenarios/{id}/forecast?horizon=1&anchor=2026-09&include_occurrences=true
 
 ---
 
-## 14. Forecast screen ✅ Verified — zero new backend work
+## 16. Forecast screen ✅ Verified — zero new backend work
 
 **Figma screens:** Forecast (horizon pills, Balance/Income vs Exp/Net flow tabs, chart, Monthly breakdown table), Month breakdown sheet (tapping a month row).
 
-**Both screens are fully covered by what's already built — nothing new was added for this pass.** Every element maps directly onto `GET /scenarios/{id}/forecast`, the same endpoint (and the same `?include_occurrences=true` addition) already covered in §13.
+**Both screens are fully covered by what's already built — nothing new was added for this pass.** Every element maps directly onto `GET /scenarios/{id}/forecast`, the same endpoint (and the same `?include_occurrences=true` addition) already covered in §15.
 
-### 14.1 Forecast screen
+### 16.1 Forecast screen
 
 | Element | Source |
 |---|---|
@@ -614,19 +722,19 @@ GET /scenarios/{id}/forecast?horizon=1&anchor=2026-09&include_occurrences=true
 | Chart headline ("+SAR 9,043") | The current month's `net_minor` (find the row where `month == current_month`, both already in the payload) |
 | **Monthly breakdown table** (Month / Net / Closing) | `months[]` directly, one row per month — request the horizon that covers however many rows the table should scroll through (e.g. `horizon=120` for the 10Y pill gives all 120 rows in one call) |
 
-### 14.2 Month breakdown sheet ("Items contributing to this month")
+### 16.2 Month breakdown sheet ("Items contributing to this month")
 
 Tapping a row needs two things, both already available:
 
 - **The three summary chips** (Income / Expenses / Net this month) — the same month's `income_minor`/`expense_minor`/`net_minor` from `months[]`, no new call needed if you already fetched the range covering it.
-- **The itemized Income/Expenses list** — group that month's `occurrences` (§13.2's `?include_occurrences=true`) by `source_id`, summing `amount_minor` per group. **Verified live**, reproducing the sheet exactly: grouped Salary/Freelance Work summed to precisely that month's `income_minor`, and Rent/Car loan/Groceries/Utilities/Subscriptions/Dining out summed to precisely `expense_minor` — including **Groceries**, a weekly recurrence, correctly summing its 4–5 Saturday occurrences that fell inside the one selected month into a single row, exactly like the mockup's single "Groceries" line.
-- **The schedule caption under each item** ("Every month on the 1st," "Every week on Saturday") — `OccurrenceOut` deliberately doesn't carry this (§13.2); pull it from the already-fetched transaction list instead (`GET /scenarios/{id}/transactions`, §7) by matching `occurrences[].source_id` to a transaction's `id` — same value, since `source_id` *is* the underlying transaction's id. Avoids sending `recurrence`/`start_date` twice in two different payloads for the same fact.
+- **The itemized Income/Expenses list** — group that month's `occurrences` (§15.2's `?include_occurrences=true`) by `source_id`, summing `amount_minor` per group. **Verified live**, reproducing the sheet exactly: grouped Salary/Freelance Work summed to precisely that month's `income_minor`, and Rent/Car loan/Groceries/Utilities/Subscriptions/Dining out summed to precisely `expense_minor` — including **Groceries**, a weekly recurrence, correctly summing its 4–5 Saturday occurrences that fell inside the one selected month into a single row, exactly like the mockup's single "Groceries" line.
+- **The schedule caption under each item** ("Every month on the 1st," "Every week on Saturday") — `OccurrenceOut` deliberately doesn't carry this (§15.2); pull it from the already-fetched transaction list instead (`GET /scenarios/{id}/transactions`, §7) by matching `occurrences[].source_id` to a transaction's `id` — same value, since `source_id` *is* the underlying transaction's id. Avoids sending `recurrence`/`start_date` twice in two different payloads for the same fact.
 
 **Fetch strategy is a client choice, not a backend constraint** — either fetch once with a large horizon and `include_occurrences=true`, then filter by month client-side whenever a row is tapped (fewer requests, larger initial payload), or re-fetch narrowly (`horizon=1&anchor=<tapped month>&include_occurrences=true`) each time a sheet opens (more requests, each one small). Both work today with no backend difference.
 
 ---
 
-## 15. Full endpoint index (status of every endpoint that exists)
+## 17. Full endpoint index (status of every endpoint that exists)
 
 Detailed contracts for these land above (or in their own section) once their Figma screen is walked through. Method/path/purpose here is accurate and already fully built+tested server-side — see `backend-plan/08-api-endpoints-plan.md` for the internal version of this same table if you need something ahead of its screen's turn.
 
@@ -637,38 +745,38 @@ Detailed contracts for these land above (or in their own section) once their Fig
 | Auth | `POST /auth/refresh` | ✅ §4 |
 | Auth | `POST /auth/logout` | ✅ §4 |
 | Me / Settings | `GET /me` | ✅ §5 |
-| Me / Settings | `PATCH /me/settings` | ✅ §11 |
+| Me / Settings | `PATCH /me/settings` | ✅ §12 |
 | Me / Settings | `PUT /me/balance` | ✅ §5 |
-| Me / Settings | `PATCH /me/password` | ⏳ |
-| Me / Settings | `DELETE /me` | ✅ §12 |
-| Categories | `GET /categories` | ⏳ |
-| Categories | `POST /categories` | ⏳ |
-| Categories | `PATCH /categories/{id}` | ⏳ |
-| Categories | `DELETE /categories/{id}` | ⏳ |
-| Plans | `GET /scenarios?include_archived=` | ✅ §9 |
+| Me / Settings | `PATCH /me/password` | ✅ §13 |
+| Me / Settings | `DELETE /me` | ✅ §14 |
+| Categories | `GET /categories` | ✅ §9 |
+| Categories | `POST /categories` | ✅ §9 |
+| Categories | `PATCH /categories/{id}` | ✅ §9 |
+| Categories | `DELETE /categories/{id}` | ✅ §9 |
+| Plans | `GET /scenarios?include_archived=` | ✅ §10 |
 | Plans | `POST /scenarios` | ✅ §6 |
-| Plans | `GET /scenarios/{id}` | ⏳ |
-| Plans | `PATCH /scenarios/{id}` | ✅ §9 |
-| Plans | `DELETE /scenarios/{id}` | ✅ §9 |
-| Plans | `POST /scenarios/{id}/duplicate` | ✅ §9 |
-| Plans | `POST /scenarios/{id}/archive` | ✅ §9 |
-| Plans | `POST /scenarios/{id}/unarchive` | ✅ §9 |
+| Plans | `GET /scenarios/{id}` | ✅ §10 |
+| Plans | `PATCH /scenarios/{id}` | ✅ §10 |
+| Plans | `DELETE /scenarios/{id}` | ✅ §10 |
+| Plans | `POST /scenarios/{id}/duplicate` | ✅ §10 |
+| Plans | `POST /scenarios/{id}/archive` | ✅ §10 |
+| Plans | `POST /scenarios/{id}/unarchive` | ✅ §10 |
 | Transactions | `GET /scenarios/{id}/transactions?filter=` | ✅ §7 |
 | Transactions | `POST /scenarios/{id}/transactions` | ✅ §8 |
 | Transactions | `PATCH /transactions/{id}` | ✅ §8 |
 | Transactions | `DELETE /transactions/{id}` | ✅ §8 |
-| Transactions | `GET /transactions/{id}/dependents` | ⏳ |
+| Transactions | `GET /transactions/{id}/dependents` | ✅ §8 |
 | Overlays | `POST /scenarios/{id}/overlays` | ✅ §8 |
 | Overlays | `PATCH /scenarios/{id}/overlays/{ovid}` | ✅ §8 |
 | Overlays | `DELETE /scenarios/{id}/overlays/{ovid}` | ✅ §8 |
-| Forecast & Compare | `GET /scenarios/{id}/forecast?horizon=&anchor=&include_occurrences=` | ✅ §13/§14 |
-| Forecast & Compare | `GET /forecast/compare?a=&b=&horizon=&anchor=` | ✅ §10 |
-| Account data | `DELETE /me/data` | ✅ §12 |
-| Account data | `GET /me/export?format=` | ✅ §12 |
+| Forecast & Compare | `GET /scenarios/{id}/forecast?horizon=&anchor=&include_occurrences=` | ✅ §15/§16 |
+| Forecast & Compare | `GET /forecast/compare?a=&b=&horizon=&anchor=` | ✅ §11 |
+| Account data | `DELETE /me/data` | ✅ §14 |
+| Account data | `GET /me/export?format=` | ✅ §14 |
 
 ---
 
-## 16. Error code reference (all codes, every endpoint)
+## 18. Error code reference (all codes, every endpoint)
 
 Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — this table exists for the `code` values themselves, to branch client logic on.
 
@@ -709,7 +817,7 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 
 ---
 
-## 17. Open items that affect integration
+## 19. Open items that affect integration
 
 - **Arabic text is unreviewed** (§3.1) — display it, but expect it to be replaced with native-speaker-reviewed copy later without any contract change.
 - **No forgot/reset-password-via-email in this phase** — a user who forgets their password has no self-service recovery until Phase 2; the only password change path is `PATCH /me/password` while logged in (requires the current password). Design the Login screen's "forgot password?" affordance accordingly — either omit it for now or show it as "coming soon."
