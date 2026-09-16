@@ -29,15 +29,12 @@ SUCCESS_MESSAGES: dict[str, tuple[str, str]] = {
         "You've been logged out.",
         "تم تسجيل خروجك.",
     ),
-    # Deliberately neutral wording -- this endpoint always returns success
-    # regardless of whether the email is registered, to avoid confirming
-    # account existence (architecture §11 / rate-limit section).
-    "auth.password_reset_requested": (
-        "If an account exists for that email, we've sent a link to reset the password.",
-        "إذا كان هناك حساب مرتبط بهذا البريد الإلكتروني، "
-        "فقد أرسلنا رابطًا لإعادة تعيين كلمة المرور.",
-    ),
-    "auth.password_reset_confirmed": (
+    # PATCH /me/password: no forgot/reset-password-via-email flow in
+    # Phase 1 (product decision -- needs a transactional email provider,
+    # deferred to Phase 2). Changing a password revokes every other
+    # session, which the client should expect and handle (e.g. by
+    # prompting re-login), not something this message itself states.
+    "auth.password_changed": (
         "Your password has been changed.",
         "تم تغيير كلمة المرور الخاصة بك.",
     ),

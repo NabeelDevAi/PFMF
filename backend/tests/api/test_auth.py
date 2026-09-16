@@ -1,6 +1,10 @@
 """Integration tests for the auth API against the real local test database
 (backend-plan/11's M2 done-criteria): register/login/refresh/logout,
-refresh-token reuse revoking the whole family, and rate limiting."""
+refresh-token reuse revoking the whole family, and rate limiting.
+
+No forgot/reset-password-via-email flow in Phase 1 (product decision --
+see auth_service.py's module docstring); PATCH /me/password is tested
+in tests/api/test_me.py alongside the rest of /me."""
 
 from __future__ import annotations
 
@@ -141,52 +145,3 @@ def test_login_rate_limited_after_five_attempts_per_minute(client: TestClient) -
     sixth = client.post("/v1/auth/login", json=body)
     assert sixth.status_code == 429
     assert sixth.json()["error"]["code"] == "rate_limited"
-
-
-def test_password_reset_flow(client: TestClient, monkeypatch) -> None:
-    _register(client, email="reset@example.com", password="original-pw")
-
-    captured: dict[str, str] = {}
-
-    def fake_send(self, *, email: str, token: str) -> None:
-        captured["email"] = email
-        captured["token"] = token
-
-    from app.services.password_reset_sender import ConsolePasswordResetSender
-
-    monkeypatch.setattr(ConsolePasswordResetSender, "send", fake_send)
-
-    resp = client.post("/v1/auth/password-reset/request", json={"email": "reset@example.com"})
-    assert resp.status_code == 200
-    assert captured["email"] == "reset@example.com"
-    assert captured["token"]
-
-    confirm = client.post(
-        "/v1/auth/password-reset/confirm",
-        json={"token": captured["token"], "new_password": "brand-new-pw"},
-    )
-    assert confirm.status_code == 200
-
-    old_login = client.post(
-        "/v1/auth/login", json={"email": "reset@example.com", "password": "original-pw"}
-    )
-    assert old_login.status_code == 401
-
-    new_login = client.post(
-        "/v1/auth/login", json={"email": "reset@example.com", "password": "brand-new-pw"}
-    )
-    assert new_login.status_code == 200
-
-
-def test_password_reset_request_for_unknown_email_still_returns_200(client: TestClient) -> None:
-    """Never reveal whether an email is registered."""
-    resp = client.post("/v1/auth/password-reset/request", json={"email": "ghost@example.com"})
-    assert resp.status_code == 200
-
-
-def test_password_reset_confirm_with_bad_token_is_rejected(client: TestClient) -> None:
-    resp = client.post(
-        "/v1/auth/password-reset/confirm", json={"token": "garbage", "new_password": "whatever12"}
-    )
-    assert resp.status_code == 422
-    assert resp.json()["error"]["code"] == "auth.reset_token_invalid"

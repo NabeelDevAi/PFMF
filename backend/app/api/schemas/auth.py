@@ -21,12 +21,14 @@ class LogoutRequest(BaseModel):
     refresh_token: str
 
 
-class PasswordResetRequest(BaseModel):
-    email: EmailStr
+class ChangePasswordRequest(BaseModel):
+    """PATCH /me/password -- the only way to change a password in Phase 1
+    (no forgot/reset-password-via-email flow; see auth_service.py's
+    module docstring). current_password is required, never optional --
+    a bare new-password field would let a hijacked-but-still-logged-in
+    session lock the real owner out."""
 
-
-class PasswordResetConfirm(BaseModel):
-    token: str
+    current_password: str
     new_password: str
 
 

@@ -66,9 +66,9 @@ def _reset_test_data(engine: Engine) -> None:
     table (seed rows and all) via its FK to users, which is not what
     "clean up after this test" should mean. Deleting from `users` instead
     relies on every current per-user table's own `ON DELETE CASCADE` (user_settings,
-    scenarios, refresh_tokens, password_reset_tokens, and user-owned
-    categories via categories.user_id) to clean up everything that hangs
-    off a user, while rows with user_id IS NULL are never touched.
+    scenarios, refresh_tokens, and user-owned categories via
+    categories.user_id) to clean up everything that hangs off a user,
+    while rows with user_id IS NULL are never touched.
     Revisit if a future table holds test data that doesn't cascade from users.
     """
     with engine.begin() as conn:

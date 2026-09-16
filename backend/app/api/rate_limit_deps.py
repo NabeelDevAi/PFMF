@@ -19,15 +19,3 @@ def rate_limit_by_ip(request: Request) -> None:
         key, max_attempts=settings.rate_limit_auth_attempts_per_minute, window_seconds=60
     ):
         raise APIError("rate_limited")
-
-
-def rate_limit_password_reset_by_email(email: str) -> None:
-    """3/hour per email on password-reset requests. Called directly from
-    the route (not as a Depends) since the key depends on the request body,
-    which Depends can't see before the route itself parses it."""
-    settings = get_settings()
-    key = f"reset:{email.lower()}"
-    if not limiter.hit(
-        key, max_attempts=settings.rate_limit_password_reset_attempts_per_hour, window_seconds=3600
-    ):
-        raise APIError("rate_limited")

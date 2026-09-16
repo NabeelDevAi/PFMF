@@ -3,12 +3,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.api.rate_limit_deps import rate_limit_by_ip, rate_limit_password_reset_by_email
+from app.api.rate_limit_deps import rate_limit_by_ip
 from app.api.schemas.auth import (
     LoginRequest,
     LogoutRequest,
-    PasswordResetConfirm,
-    PasswordResetRequest,
     RefreshRequest,
     RegisterRequest,
     TokenPairResponse,
@@ -50,22 +48,3 @@ def logout(body: LogoutRequest, db: Session = Depends(get_db)) -> ActionResult:
     AuthService(db).logout(refresh_token=body.refresh_token)
     db.commit()
     return ActionResult.from_key("auth.logged_out")
-
-
-@router.post("/password-reset/request", response_model=ActionResult)
-def request_password_reset(
-    body: PasswordResetRequest, db: Session = Depends(get_db)
-) -> ActionResult:
-    rate_limit_password_reset_by_email(body.email)
-    AuthService(db).request_password_reset(email=body.email)
-    db.commit()
-    return ActionResult.from_key("auth.password_reset_requested")
-
-
-@router.post("/password-reset/confirm", response_model=ActionResult)
-def confirm_password_reset(
-    body: PasswordResetConfirm, db: Session = Depends(get_db)
-) -> ActionResult:
-    AuthService(db).confirm_password_reset(token=body.token, new_password=body.new_password)
-    db.commit()
-    return ActionResult.from_key("auth.password_reset_confirmed")

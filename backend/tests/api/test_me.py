@@ -1,7 +1,9 @@
-"""GET /me, PATCH /me/settings, PUT /me/balance, plus the auth dependency
-itself. The balance endpoint is deliberately separate from settings
-(architecture §9.1, D-04) -- see the tests below asserting settings can't
-touch it."""
+"""GET /me, PATCH /me/settings, PUT /me/balance, PATCH /me/password, plus
+the auth dependency itself. The balance endpoint is deliberately separate
+from settings (architecture §9.1, D-04) -- see the tests below asserting
+settings can't touch it. No forgot/reset-password-via-email flow in
+Phase 1 -- PATCH /me/password (tested below) is the only way to change
+a password, and it requires an active session."""
 
 from __future__ import annotations
 
@@ -140,3 +142,84 @@ def test_put_balance_requires_auth(client: TestClient) -> None:
         "/v1/me/balance", json={"current_balance_minor": 100000, "balance_as_of": "2026-01-01"}
     )
     assert resp.status_code == 401
+
+
+def test_change_password_requires_auth(client: TestClient) -> None:
+    resp = client.patch(
+        "/v1/me/password", json={"current_password": "correct-horse", "new_password": "brand-new1"}
+    )
+    assert resp.status_code == 401
+
+
+def test_change_password_succeeds_and_old_password_stops_working(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="changepw@example.com")
+
+    resp = client.patch(
+        "/v1/me/password",
+        headers=headers,
+        json={"current_password": "correct-horse", "new_password": "brand-new-pw"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["message_en"]
+    assert resp.json()["message_ar"]
+
+    old_login = client.post(
+        "/v1/auth/login", json={"email": "changepw@example.com", "password": "correct-horse"}
+    )
+    assert old_login.status_code == 401
+
+    new_login = client.post(
+        "/v1/auth/login", json={"email": "changepw@example.com", "password": "brand-new-pw"}
+    )
+    assert new_login.status_code == 200
+
+
+def test_change_password_wrong_current_password_is_rejected(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="wrongcurrent@example.com")
+
+    resp = client.patch(
+        "/v1/me/password",
+        headers=headers,
+        json={"current_password": "not-the-real-one", "new_password": "brand-new-pw"},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "auth.current_password_incorrect"
+
+    # The password must be genuinely unchanged.
+    still_works = client.post(
+        "/v1/auth/login", json={"email": "wrongcurrent@example.com", "password": "correct-horse"}
+    )
+    assert still_works.status_code == 200
+
+
+def test_change_password_weak_new_password_is_rejected(client: TestClient) -> None:
+    headers = _register_and_auth_headers(client, email="weaknew@example.com")
+
+    resp = client.patch(
+        "/v1/me/password",
+        headers=headers,
+        json={"current_password": "correct-horse", "new_password": "short"},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "auth.weak_password"
+
+
+def test_change_password_revokes_other_sessions(client: TestClient) -> None:
+    """Changing a password revokes every refresh-token family for the
+    user, including the one that authenticated this very request -- the
+    client is expected to re-authenticate afterward."""
+    resp = client.post(
+        "/v1/auth/register", json={"email": "revoke@example.com", "password": "correct-horse"}
+    )
+    tokens = resp.json()
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    client.patch(
+        "/v1/me/password",
+        headers=headers,
+        json={"current_password": "correct-horse", "new_password": "brand-new-pw"},
+    )
+
+    refresh_resp = client.post("/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    assert refresh_resp.status_code == 401
+    assert refresh_resp.json()["error"]["code"] == "auth.token_invalid"

@@ -47,10 +47,6 @@ class Settings(BaseSettings):
 
     # Rate limiting (in-memory for this build -- see backend-plan/07 §6).
     rate_limit_auth_attempts_per_minute: int = 5
-    rate_limit_password_reset_attempts_per_hour: int = 3
-
-    # Password reset token lifetime.
-    password_reset_ttl_minutes: int = 30
 
 
 @lru_cache

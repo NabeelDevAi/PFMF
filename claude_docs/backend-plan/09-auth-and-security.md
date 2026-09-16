@@ -18,11 +18,13 @@ A resource that exists but belongs to someone else returns the same `resource.no
 
 ## 4. Rate limiting
 
-Target thresholds (kept from the original spec): 5 attempts/minute per IP on login and register; 3/hour per email on password-reset requests. Implemented as an in-memory limiter for this build (see `07-api-layer-and-error-handling.md` §6) rather than a shared/distributed one — sufficient for a single local process, explicitly flagged as needing an upgrade before running as more than one process.
+Target threshold (kept from the original spec): 5 attempts/minute per IP on login and register. Implemented as an in-memory limiter for this build (see `07-api-layer-and-error-handling.md` §6) rather than a shared/distributed one — sufficient for a single local process, explicitly flagged as needing an upgrade before running as more than one process. (The password-reset rate limit from the original spec, 3/hour per email, no longer applies — see §5.)
 
-## 5. Password reset
+## 5. No forgot/reset-password-via-email flow in Phase 1
 
-Requires a transactional email provider, which is an **unresolved external dependency** — not mentioned in the original RFP, and flagged as an open question in the screen-flow spec (§14, question 5: is it in scope, and who pays for the service). Until that's answered, this build implements the full reset-token flow (request → token issued → token validated → password changed) but sends the token through a stubbed sender — for local development, printing/logging it — built behind a small interface so swapping in a real provider later is a one-file change, not a redesign.
+**Product decision, superseding the original spec.** A transactional email provider was always an unresolved external dependency (not mentioned in the original RFP; flagged as an open question in the screen-flow spec §14 question 5 and M1 §11 item 9: who provides/pays for it). Rather than build the full reset-token flow behind a stubbed sender waiting on that answer, the decision was made to drop the feature from Phase 1 entirely: **a user who forgets their password has no self-service recovery until Phase 2.** They can only change a password they already know, while logged in — `PATCH /v1/me/password`, requiring the current password re-entered plus the new one, and revoking every other session (all refresh-token families, including the one that authenticated the request itself — the client is expected to re-authenticate afterward).
+
+What this removed: `POST /auth/password-reset/request` and `/confirm`, the `password_reset_tokens` table (migration `0014` drops it — migration `0007` that created it is left untouched, migrations are never edited after merge), its repository and model, the stubbed `ConsolePasswordResetSender`, the 3/hour rate limit, and the `auth.reset_token_invalid` error code (replaced by `auth.current_password_incorrect` for the new endpoint). Phase 2 re-adds this schema and flow fresh, informed by whatever email provider is chosen then, rather than resurrecting dormant code that predates that decision.
 
 ## 6. Transport & storage
 

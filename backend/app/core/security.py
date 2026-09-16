@@ -58,8 +58,8 @@ def generate_refresh_token() -> str:
 
 def hash_token(raw: str) -> str:
     """One-way hash for anything stored server-side that must match a raw
-    value presented later (refresh tokens, password-reset tokens). Not a
-    password hash -- these values are already high-entropy random tokens,
-    so a fast, deterministic hash (for exact-match lookup) is correct here;
-    Argon2 is for low-entropy human passwords, not this."""
+    value presented later (refresh tokens). Not a password hash -- these
+    values are already high-entropy random tokens, so a fast,
+    deterministic hash (for exact-match lookup) is correct here; Argon2
+    is for low-entropy human passwords, not this."""
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()

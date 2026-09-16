@@ -47,7 +47,7 @@ ERROR_STATUS: dict[str, int] = {
     "auth.token_expired": 401,
     "auth.token_invalid": 401,
     "auth.weak_password": 422,
-    "auth.reset_token_invalid": 422,  # addition: invalid/expired/already-used reset token
+    "auth.current_password_incorrect": 422,  # addition: PATCH /me/password's current_password check
     "balance.as_of_in_future": 422,
     "balance.as_of_too_old": 422,
     "validation.required": 422,
@@ -94,9 +94,9 @@ ERROR_MESSAGES: dict[str, tuple[str, str]] = {
         "Your password doesn't meet the minimum security requirements.",
         "كلمة المرور لا تفي بالحد الأدنى من متطلبات الأمان.",
     ),
-    "auth.reset_token_invalid": (
-        "This password reset link is invalid or has expired.",
-        "رابط إعادة تعيين كلمة المرور هذا غير صالح أو منتهي الصلاحية.",
+    "auth.current_password_incorrect": (
+        "Your current password is incorrect.",
+        "كلمة المرور الحالية غير صحيحة.",
     ),
     "balance.as_of_in_future": (
         "The date you entered can't be in the future.",

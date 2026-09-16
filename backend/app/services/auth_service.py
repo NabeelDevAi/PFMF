@@ -1,5 +1,12 @@
-"""Registration, login, refresh rotation, logout, and the password-reset
-token flow. See backend-plan/06-services-module.md and 09-auth-and-security.md.
+"""Registration, login, refresh rotation, logout, and changing a
+password while logged in. See backend-plan/06-services-module.md and
+09-auth-and-security.md.
+
+No forgot/reset-password-via-email flow in Phase 1 -- that needs a real
+transactional email provider (an unresolved external dependency),
+deferred to Phase 2 by explicit product decision. A user who forgets
+their password has no self-service recovery in Phase 1; they can only
+change a password they already know, while logged in.
 """
 
 from __future__ import annotations
@@ -20,12 +27,10 @@ from app.core.security import (
     hash_token,
     verify_password,
 )
-from app.repositories.password_reset_token_repository import PasswordResetTokenRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.repositories.scenario_repository import ScenarioRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.user_settings_repository import UserSettingsRepository
-from app.services.password_reset_sender import ConsolePasswordResetSender, PasswordResetSender
 
 MIN_PASSWORD_LENGTH = 8
 
@@ -39,16 +44,12 @@ class TokenPair:
 
 
 class AuthService:
-    def __init__(
-        self, db: Session, *, password_reset_sender: PasswordResetSender | None = None
-    ) -> None:
+    def __init__(self, db: Session) -> None:
         self.db = db
         self.users = UserRepository(db)
         self.settings_repo = UserSettingsRepository(db)
         self.scenarios = ScenarioRepository(db)
         self.refresh_tokens = RefreshTokenRepository(db)
-        self.reset_tokens = PasswordResetTokenRepository(db)
-        self.password_reset_sender = password_reset_sender or ConsolePasswordResetSender()
 
     def register(self, *, email: str, password: str) -> TokenPair:
         _check_password_policy(password)
@@ -110,32 +111,27 @@ class AuthService:
         # Idempotent: an already-invalid or unknown token still "succeeds" --
         # the caller's intent (be logged out) is already satisfied.
 
-    def request_password_reset(self, *, email: str) -> None:
-        user = self.users.get_by_email(email)
+    def change_password(
+        self, user_id: uuid.UUID, *, current_password: str, new_password: str
+    ) -> None:
+        """The only way to change a password in Phase 1 -- requires an
+        active session and the current password re-entered (never just a
+        bare new-password field, which would let a hijacked-but-still-
+        logged-in session lock the real owner out). Revokes every
+        refresh-token family for this user, including the one that
+        authenticated this very request: changing a password is exactly
+        the moment every other session should stop working, and the
+        client is expected to re-authenticate afterward."""
+        user = self.users.get_by_id(user_id)
         if user is None:
-            return  # never reveal whether an email is registered
+            raise APIError("resource.not_found")
+        if not verify_password(user.password_hash, current_password):
+            raise APIError("auth.current_password_incorrect")
 
-        settings = get_settings()
-        raw_token = generate_refresh_token()
-        expires_at = datetime.now(UTC) + timedelta(minutes=settings.password_reset_ttl_minutes)
-        self.reset_tokens.create(
-            user_id=user.id, token_hash=hash_token(raw_token), expires_at=expires_at
-        )
-        self.password_reset_sender.send(email=email, token=raw_token)
-
-    def confirm_password_reset(self, *, token: str, new_password: str) -> None:
         _check_password_policy(new_password)
-
-        record = self.reset_tokens.get_by_hash(hash_token(token))
-        if record is None or record.used_at is not None or record.expires_at < datetime.now(UTC):
-            raise APIError("auth.reset_token_invalid")
-
-        user = self.users.get_by_id(record.user_id)
-        if user is None:
-            raise APIError("auth.reset_token_invalid")
-
         self.users.update_password(user, hash_password(new_password))
-        self.reset_tokens.mark_used(record)
+        self.refresh_tokens.revoke_all_for_user(user_id)
+        logger.info("password changed", extra={"user_id": user_id})
 
     def _issue_tokens(self, user_id: uuid.UUID, *, family_id: uuid.UUID) -> TokenPair:
         settings = get_settings()

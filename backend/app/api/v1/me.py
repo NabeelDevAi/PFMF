@@ -7,12 +7,14 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.api.schemas.auth import ChangePasswordRequest
 from app.api.schemas.common import ActionResult
 from app.api.schemas.export import ExportOut, export_to_csv_zip
 from app.api.schemas.me import BalanceUpdate, MeOut, SettingsPatch
 from app.db.models.user import User
 from app.db.session import get_db
 from app.services.account_service import AccountService
+from app.services.auth_service import AuthService
 from app.services.export_service import ExportService
 from app.services.reset_service import ResetService
 from app.services.settings_service import SettingsService
@@ -56,6 +58,23 @@ def update_balance(
     return MeOut.model_validate(
         {"id": user.id, "email": user.email, "created_at": user.created_at, "settings": settings}
     )
+
+
+@router.patch("/password", response_model=ActionResult)
+def change_password(
+    body: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ActionResult:
+    """The only way to change a password in Phase 1 -- no forgot/reset-
+    password-via-email flow (see auth_service.py's module docstring).
+    Revokes every other session; the client should expect to
+    re-authenticate afterward."""
+    AuthService(db).change_password(
+        user.id, current_password=body.current_password, new_password=body.new_password
+    )
+    db.commit()
+    return ActionResult.from_key("auth.password_changed")
 
 
 @router.get("/export", response_model=None)

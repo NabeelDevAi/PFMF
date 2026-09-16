@@ -32,7 +32,7 @@ class UserRepository:
     def delete(self, user: User) -> None:
         """Cascades to everything the user owns -- user_settings,
         categories, scenarios (and transitively their transactions and
-        overlays), refresh_tokens, password_reset_tokens -- via each
-        table's own ON DELETE CASCADE. Nothing else needs deleting."""
+        overlays), refresh_tokens -- via each table's own ON DELETE
+        CASCADE. Nothing else needs deleting."""
         self.db.delete(user)
         self.db.flush()

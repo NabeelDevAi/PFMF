@@ -41,3 +41,15 @@ class RefreshTokenRepository:
             .values(revoked_at=datetime.now(UTC))
         )
         self.db.flush()
+
+    def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
+        """Every family, not just one -- used by AuthService.change_password:
+        changing a password is exactly the moment every other session
+        (device, browser, stolen token) should stop working, not just the
+        one that triggered the change."""
+        self.db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None))
+            .values(revoked_at=datetime.now(UTC))
+        )
+        self.db.flush()

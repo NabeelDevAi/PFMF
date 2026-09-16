@@ -6,7 +6,7 @@ The API layer does exactly three things: authenticate the caller, validate the r
 
 ## 2. Shared dependencies
 
-- **Current user resolution** — every authenticated route depends on extracting and validating the access token and resolving it to a user id, which is then the `user_id` threaded into every repository call underneath it. There is no route that reaches a repository without this having happened first (except the handful of genuinely public routes: register, login, refresh, password-reset request).
+- **Current user resolution** — every authenticated route depends on extracting and validating the access token and resolving it to a user id, which is then the `user_id` threaded into every repository call underneath it. There is no route that reaches a repository without this having happened first (except the handful of genuinely public routes: register, login, refresh).
 - **DB session** — one request-scoped session, handed to services, closed at the end of the request.
 - **Anchor/clock resolution** — the *only* place "today" is read is here, in the forecast/compare routes, before calling `ForecastService`. The engine never sees a clock; this layer is where that promise is actually kept.
 
@@ -29,7 +29,7 @@ This table is a contract with the mobile client as much as it's an internal refe
 | `auth.token_expired` | 401 | Access token expired — client should refresh |
 | `auth.token_invalid` | 401 | Malformed or revoked token |
 | `auth.weak_password` | 422 | Password below policy |
-| `auth.reset_token_invalid` | 422 | Password-reset token invalid, expired, or already used |
+| `auth.current_password_incorrect` | 422 | `PATCH /me/password`'s current-password check failed |
 | `balance.as_of_in_future` | 422 | `PUT /me/balance`'s as-of date is later than today |
 | `balance.as_of_too_old` | 422 | `PUT /me/balance`'s as-of date is beyond the 5-year backstop |
 | `validation.required` | 422 | A required field is missing |
@@ -69,4 +69,4 @@ The original spec's rate limits (5/min on login and register per IP, 3/hour on p
 
 ## 7. Action-endpoint bilingual confirmations
 
-Same product decision as §3: the handful of endpoints that used to return a bare `204 No Content` now return `200 OK` with `{"message_en", "message_ar"}` (a 204 response can't carry a body at all — RFC 7231). Scoped deliberately narrow: only endpoints with **no resource to return** get this (`app/core/messages.py`'s `SUCCESS_MESSAGES`) — `POST /auth/logout`, `POST /auth/password-reset/request`, `POST /auth/password-reset/confirm`, `DELETE /transactions/{id}`, `DELETE /scenarios/{id}`, `DELETE /scenarios/{id}/overlays/{ovid}`, `DELETE /categories/{id}`, `DELETE /me/data`, `DELETE /me`. Everything that returns the resource it just created or changed (`POST /scenarios`, `PATCH /transactions/{id}`, ...) is unchanged — the client already has what it needs from that data to compose its own contextual copy (e.g. "Added to Buy House"), per screen-flow §10.
+Same product decision as §3: the handful of endpoints that used to return a bare `204 No Content` now return `200 OK` with `{"message_en", "message_ar"}` (a 204 response can't carry a body at all — RFC 7231). Scoped deliberately narrow: only endpoints with **no resource to return** get this (`app/core/messages.py`'s `SUCCESS_MESSAGES`) — `POST /auth/logout`, `PATCH /me/password`, `DELETE /transactions/{id}`, `DELETE /scenarios/{id}`, `DELETE /scenarios/{id}/overlays/{ovid}`, `DELETE /categories/{id}`, `DELETE /me/data`, `DELETE /me`. Everything that returns the resource it just created or changed (`POST /scenarios`, `PATCH /transactions/{id}`, ...) is unchanged — the client already has what it needs from that data to compose its own contextual copy (e.g. "Added to Buy House"), per screen-flow §10.
