@@ -13,7 +13,9 @@ from fastapi.testclient import TestClient
 
 
 def _register_and_auth_headers(client: TestClient, email: str = "me@example.com") -> dict[str, str]:
-    resp = client.post("/v1/auth/register", json={"email": email, "password": "correct-horse"})
+    resp = client.post(
+        "/v1/auth/register", json={"email": email, "password": "correct-horse", "name": "Test User"}
+    )
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
 
@@ -209,7 +211,8 @@ def test_change_password_revokes_other_sessions(client: TestClient) -> None:
     user, including the one that authenticated this very request -- the
     client is expected to re-authenticate afterward."""
     resp = client.post(
-        "/v1/auth/register", json={"email": "revoke@example.com", "password": "correct-horse"}
+        "/v1/auth/register",
+        json={"email": "revoke@example.com", "password": "correct-horse", "name": "Test User"},
     )
     tokens = resp.json()
     headers = {"Authorization": f"Bearer {tokens['access_token']}"}

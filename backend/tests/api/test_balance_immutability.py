@@ -35,7 +35,9 @@ def _register(client: TestClient) -> dict[str, str]:
     # simulated users sharing a "connection."
     limiter.reset()
     email = f"immut-{uuid.uuid4()}@example.com"
-    resp = client.post("/v1/auth/register", json={"email": email, "password": "correct-horse"})
+    resp = client.post(
+        "/v1/auth/register", json={"email": email, "password": "correct-horse", "name": "Test User"}
+    )
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
 

@@ -14,7 +14,9 @@ from fastapi.testclient import TestClient
 def _register(
     client: TestClient, email: str = "alice@example.com", password: str = "correct-horse"
 ) -> dict:
-    resp = client.post("/v1/auth/register", json={"email": email, "password": password})
+    resp = client.post(
+        "/v1/auth/register", json={"email": email, "password": password, "name": "Test User"}
+    )
     assert resp.status_code == 201, resp.text
     return resp.json()
 
@@ -29,14 +31,18 @@ def test_register_returns_token_pair(client: TestClient) -> None:
 def test_register_duplicate_email_is_conflict(client: TestClient) -> None:
     _register(client, email="dup@example.com")
     resp = client.post(
-        "/v1/auth/register", json={"email": "dup@example.com", "password": "another-pass"}
+        "/v1/auth/register",
+        json={"email": "dup@example.com", "password": "another-pass", "name": "Test User"},
     )
     assert resp.status_code == 409
     assert resp.json()["error"]["code"] == "auth.email_taken"
 
 
 def test_register_weak_password_is_rejected(client: TestClient) -> None:
-    resp = client.post("/v1/auth/register", json={"email": "weak@example.com", "password": "short"})
+    resp = client.post(
+        "/v1/auth/register",
+        json={"email": "weak@example.com", "password": "short", "name": "Test User"},
+    )
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "auth.weak_password"
 
@@ -49,6 +55,14 @@ def test_register_creates_base_scenario_and_default_settings(client: TestClient)
     assert settings["currency_code"] == "SAR"
     assert settings["locale"] == "en"
     assert settings["current_balance_minor"] == 0
+    assert settings["display_name"] == "Test User"
+
+
+def test_register_requires_name(client: TestClient) -> None:
+    resp = client.post(
+        "/v1/auth/register", json={"email": "noname@example.com", "password": "correct-horse"}
+    )
+    assert resp.status_code == 422
 
 
 def test_login_success(client: TestClient) -> None:

@@ -8,7 +8,7 @@ All routes below sit under `/v1` and (except the ones marked public) require a v
 
 | Endpoint | Purpose | Key error codes |
 |---|---|---|
-| `POST /auth/register` | Create a user + their Base scenario + default settings in one step | `auth.email_taken`, `auth.weak_password`, `validation.*` |
+| `POST /auth/register` | Create a user (email, password, name) + their Base scenario + default settings in one step. `name` is required and stored as `user_settings.display_name` at creation time — never null for a new user. | `auth.email_taken`, `auth.weak_password`, `validation.*` |
 | `POST /auth/login` | Exchange credentials for an access + refresh token pair | `auth.invalid_credentials`, `rate_limited` |
 | `POST /auth/refresh` | Exchange a refresh token for a new access/refresh pair; rotates the refresh token; reuse of an already-consumed token revokes the whole family | `auth.token_invalid`, `auth.token_expired` |
 | `POST /auth/logout` | Revoke the current refresh token family | `auth.token_invalid` |

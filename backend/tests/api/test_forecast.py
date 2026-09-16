@@ -28,7 +28,9 @@ GOLDEN_CASES = [
 
 
 def _auth_headers(client: TestClient, email: str = "fc@example.com") -> dict[str, str]:
-    resp = client.post("/v1/auth/register", json={"email": email, "password": "correct-horse"})
+    resp = client.post(
+        "/v1/auth/register", json={"email": email, "password": "correct-horse", "name": "Test User"}
+    )
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
 

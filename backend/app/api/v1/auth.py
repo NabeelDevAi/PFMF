@@ -22,7 +22,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def register(
     body: RegisterRequest, db: Session = Depends(get_db), _rl: None = Depends(rate_limit_by_ip)
 ) -> TokenPairResponse:
-    tokens = AuthService(db).register(email=body.email, password=body.password)
+    tokens = AuthService(db).register(email=body.email, password=body.password, name=body.name)
     db.commit()
     return TokenPairResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
 

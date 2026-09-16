@@ -36,7 +36,9 @@ MONTHLY_NET_MINOR = SALARY_MINOR - RENT_MINOR - UTILITIES_MINOR  # 1,970,000 = 1
 
 def register(client: TestClient, email: str | None = None) -> dict[str, str]:
     email = email or f"m1-{uuid.uuid4()}@example.com"
-    resp = client.post("/v1/auth/register", json={"email": email, "password": "correct-horse"})
+    resp = client.post(
+        "/v1/auth/register", json={"email": email, "password": "correct-horse", "name": "Test User"}
+    )
     assert resp.status_code == 201, resp.text
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 

@@ -7,7 +7,9 @@ from fastapi.testclient import TestClient
 
 
 def _register(client: TestClient, email: str = "delacct@example.com") -> dict:
-    resp = client.post("/v1/auth/register", json={"email": email, "password": "correct-horse"})
+    resp = client.post(
+        "/v1/auth/register", json={"email": email, "password": "correct-horse", "name": "Test User"}
+    )
     return resp.json()
 
 
@@ -26,7 +28,8 @@ def test_delete_account_removes_the_user(client: TestClient) -> None:
     # The old email can be registered again -- the account is truly gone,
     # not just emptied (that would be reset, not deletion).
     again = client.post(
-        "/v1/auth/register", json={"email": "gone@example.com", "password": "another-pass"}
+        "/v1/auth/register",
+        json={"email": "gone@example.com", "password": "another-pass", "name": "Test User"},
     )
     assert again.status_code == 201
 

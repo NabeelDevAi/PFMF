@@ -51,7 +51,7 @@ class AuthService:
         self.scenarios = ScenarioRepository(db)
         self.refresh_tokens = RefreshTokenRepository(db)
 
-    def register(self, *, email: str, password: str) -> TokenPair:
+    def register(self, *, email: str, password: str, name: str) -> TokenPair:
         _check_password_policy(password)
         if self.users.get_by_email(email) is not None:
             raise APIError("auth.email_taken", {"field": "email"})
@@ -60,7 +60,9 @@ class AuthService:
         # balance_as_of defaults to today; onboarding is expected to set the
         # real Current Cash Balance value. The engine never reads a clock --
         # this is a service, so it's allowed to.
-        self.settings_repo.create_default(user_id=user.id, balance_as_of=date.today())
+        self.settings_repo.create_default(
+            user_id=user.id, balance_as_of=date.today(), display_name=name
+        )
         self.scenarios.create_base(user_id=user.id)
 
         logger.info("user registered", extra={"user_id": user.id})

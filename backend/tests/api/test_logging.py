@@ -54,7 +54,8 @@ def test_unhandled_exception_is_logged_with_a_traceback_not_silently_swallowed(
     monkeypatch.setattr(settings_service_module.SettingsService, "get", _boom)
 
     registered = client.post(
-        "/v1/auth/register", json={"email": "logboom@example.com", "password": "correct-horse"}
+        "/v1/auth/register",
+        json={"email": "logboom@example.com", "password": "correct-horse", "name": "Test User"},
     )
     headers = {"Authorization": f"Bearer {registered.json()['access_token']}"}
 

@@ -30,7 +30,12 @@ def test_error_envelope_carries_bilingual_messages_matching_the_registry(
 
 def test_action_result_carries_bilingual_messages(client: TestClient) -> None:
     resp = client.post(
-        "/v1/auth/register", json={"email": "actionresult@example.com", "password": "correct-horse"}
+        "/v1/auth/register",
+        json={
+            "email": "actionresult@example.com",
+            "password": "correct-horse",
+            "name": "Test User",
+        },
     )
     headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
