@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from typing import Literal
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.api.schemas.common import ActionResult
-from app.api.schemas.export import ExportOut
+from app.api.schemas.export import ExportOut, export_to_csv_zip
 from app.api.schemas.me import BalanceUpdate, MeOut, SettingsPatch
 from app.db.models.user import User
 from app.db.session import get_db
@@ -55,9 +58,26 @@ def update_balance(
     )
 
 
-@router.get("/export", response_model=ExportOut)
-def export_data(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> ExportOut:
+@router.get("/export", response_model=None)
+def export_data(
+    format: Literal["json", "csv"] = Query("json"),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ExportOut | Response:
+    """Same raw, reconstructable-backup data either way (RFP §4.8) --
+    `format` just picks the serialization. `csv` bundles five CSV files
+    (one per table: account, categories, scenarios, transactions,
+    overlays) as a ZIP, since a single flat CSV can't hold five
+    differently-shaped tables. Defaults to `json` for backward
+    compatibility; the client is expected to always pass this
+    explicitly rather than rely on the default."""
     data = ExportService(db).export(user.id)
+    if format == "csv":
+        return Response(
+            content=export_to_csv_zip(data),
+            media_type="application/zip",
+            headers={"Content-Disposition": "attachment; filename=export.zip"},
+        )
     return ExportOut.from_data(data)
 
 

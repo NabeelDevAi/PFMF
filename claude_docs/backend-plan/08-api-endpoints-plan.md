@@ -84,6 +84,6 @@ There is deliberately no `/dashboard` and no `/charts` endpoint anywhere in this
 | Endpoint | Purpose | Key error codes |
 |---|---|---|
 | `DELETE /me/data` | Full reset (RFP §4.8) | — |
-| `GET /me/export` | JSON export of the user's data (RFP §4.8; CSV is an open question, see `12-open-questions-and-future-hardening.md`) | — |
+| `GET /me/export?format=` | Full raw backup of the user's data (RFP §4.8), as `json` (default) or `csv` — CSV bundles five files, one per table, as a ZIP, since a single flat CSV can't hold five differently-shaped tables | `validation.invalid` (bad `format` value) |
 
 `DELETE /me` (full account deletion, distinct from a data reset) is listed under §2 above, not here — it lives on the account resource itself, not "data."
