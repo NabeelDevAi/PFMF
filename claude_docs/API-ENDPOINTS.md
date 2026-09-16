@@ -6,7 +6,7 @@ For the full endpoint index (every endpoint that exists, whether or not it's bee
 
 **Status legend:**
 - ✅ **Verified** — walked through against a specific Figma screen, contract below is exact and tested.
-- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§9) so nothing is forgotten; full contract lands here once its turn comes.
+- ⏳ **Not yet verified** — endpoint exists and is fully tested server-side, but hasn't been matched against its Figma screen yet. Listed in the index (§10) so nothing is forgotten; full contract lands here once its turn comes.
 
 ---
 
@@ -67,7 +67,7 @@ Every non-2xx response has this shape:
 - **`message_en`** / **`message_ar`** are ready-to-display text, generated server-side. Pick one by the phone's system language — no client-side translation table needed. **Caveat: the Arabic text is a first-pass machine draft, not yet reviewed by a native speaker** — expect it to be swapped for reviewed copy later; the `code` and the response shape itself will not change when that happens.
 - **`params`** gives structured detail for the few codes that carry it (e.g. `{"field": "name"}` for a missing-field validation error) — not meant to be interpolated into the message text.
 
-Full error code reference: §10 below.
+Full error code reference: §11 below.
 
 ### 3.2 Action-confirmation response shape
 
@@ -381,7 +381,57 @@ The sheet's caption about a 29th–31st start date "falling on the last day in s
 
 ---
 
-## 9. Full endpoint index (status of every endpoint that exists)
+## 9. Plans screen — full lifecycle, plus the list's summary data ✅ Verified
+
+**Figma screens:** Plans list, Plan setup sheet (rename / archive / duplicate / delete).
+
+### 9.1 List — `GET /scenarios?include_archived=`
+
+`items`: one `ScenarioOut` per plan — `id`, `name`, `is_base`, `current_balance_override_minor`, `archived_at`, `created_at`, `updated_at`. Default (`include_archived` omitted or `false`) excludes archived plans; `?include_archived=true` includes them too, distinguishable by a non-null `archived_at`.
+
+### 9.2 Rename — `PATCH /scenarios/{id}`
+
+`{"name": "Buy a House v2"}`. Verified: renaming never touches any balance — the sheet's caption ("Renaming does not change any of its numbers") is accurate. **Errors:** `scenario.name_taken` (409), `validation.invalid` (422, blank/whitespace name — same rule as plan creation, §6), `resource.not_found`.
+
+### 9.3 Archive / Unarchive
+
+`POST /scenarios/{id}/archive` sets `archived_at`; `POST /scenarios/{id}/unarchive` clears it back to `null`. Both take no body. Verified round-trip, plus: **Base rejects archiving** with `scenario.base_immutable` (409 — matches the "NEVER DELETABLE" badge, which covers archiving too, not just deleting), and **unarchiving a plan that isn't archived** rejects with `scenario.not_archived` (409). An archived plan is excluded from the default list, the compare picker, and duplicate-source eligibility (`scenario.archived`, 409, if attempted anyway).
+
+### 9.4 Duplicate — `POST /scenarios/{id}/duplicate`
+
+`{"name": "optional — omit for '<source name> (copy)'"}`. **Verified the sheet's caption word for word** ("The copy keeps live Base inheritance, plus all overrides, removals and plan-only items."): duplicated a plan with one override, one exclude ("removal"), and one added transaction — the copy reproduced all three exactly, while everything untouched kept following Base live (the normal inheritance behavior, unaffected by the copy). **Errors:** `scenario.archived` (409, can't duplicate an archived source — restore it first), `scenario.name_taken`/`validation.invalid` (same name rules as create), `resource.not_found`.
+
+### 9.5 Delete — `DELETE /scenarios/{id}`
+
+Action-confirmation shape (§3.2), `scenario.deleted`. **Base rejects with `scenario.base_immutable`** (409) — confirms the "NEVER DELETABLE" badge.
+
+### 9.6 Deriving the list card's numbers (Balance at 10Y, vs Base, "X modified · Y removed · Z added") — no new endpoint, combine two existing calls
+
+`horizon=120` is exactly **10 years** (the backend's `max_horizon_months` is 120) — that's the number to request for "Balance at 10Y" everywhere on this screen.
+
+- **Base's own card:** `GET /scenarios/{base_id}/forecast?horizon=120` → `totals.closing_balance_minor` is "Balance at 10Y". No delta, no modified/removed/added line — nothing to compare Base against.
+- **Every other plan's card**, two calls:
+  1. `GET /forecast/compare?a={base_id}&b={plan_id}&horizon=120` → `b.totals.closing_balance_minor` is that plan's "Balance at 10Y"; `deltas[-1].closing_balance_delta_minor` is "vs Base" (negative → red, positive → green, matching your mockup).
+  2. `GET /scenarios/{plan_id}/transactions?filter=all` → count `items` by `origin`: `overridden` → **modified**, `excluded` → **removed**, `added` → **added** (ignore `inherited`/`own`).
+- **Why two calls, not one:** `compare`'s own `drivers` list (tagged `added`/`removed`/`modified`) looks like a shortcut for the same three counts, but it's the wrong source — a driver only appears there when the change actually moves the total. **Verified live:** overriding a transaction's *name only* (same amount) produced **zero drivers** in `compare`, while `transactions?filter=all` correctly still showed it as `origin: "overridden"`. Since that same row shows a `Modified` badge everywhere else in the app (§7), the two counts must agree — use `filter=all`'s origin counts for this line, not `compare`'s drivers.
+- This means rendering the full Plans list costs **1 call for Base's card, plus 2 calls per other plan.** There's deliberately no dedicated list-summary/aggregation endpoint — matches the architecture's standing "no dashboard, no charts endpoint" rule (every number on every screen comes from the forecast/compare/transactions payloads that already exist for other reasons). Worth revisiting only if a user's plan count grows large enough that this becomes a lot of requests to render one screen — there's no cap on plan count at all (see `backend-plan/12-open-questions-and-future-hardening.md`).
+
+Note: this section only verifies the specific fields above for this exact purpose — the full forecast/compare contract (month rows, full driver detail, for actual chart/dashboard screens) is still ⏳, held for the Forecast and Compare screens' own turns.
+
+### 9.7 Error code summary for this screen
+
+| `code` | HTTP | When |
+|---|---|---|
+| `scenario.name_taken` | 409 | Create/rename/duplicate name collides with an existing plan (including Base's own name, and archived plans) |
+| `scenario.base_immutable` | 409 | Attempt to archive or delete the Base Plan |
+| `scenario.archived` | 409 | Attempt to duplicate an archived plan, or use one as a compare operand |
+| `scenario.not_archived` | 409 | Attempt to unarchive a plan that isn't archived |
+| `validation.invalid` | 422 | Blank/whitespace name |
+| `resource.not_found` | 404 | Plan doesn't exist or belongs to another user |
+
+---
+
+## 10. Full endpoint index (status of every endpoint that exists)
 
 Detailed contracts for these land above (or in their own section) once their Figma screen is walked through. Method/path/purpose here is accurate and already fully built+tested server-side — see `backend-plan/08-api-endpoints-plan.md` for the internal version of this same table if you need something ahead of its screen's turn.
 
@@ -400,14 +450,14 @@ Detailed contracts for these land above (or in their own section) once their Fig
 | Categories | `POST /categories` | ⏳ |
 | Categories | `PATCH /categories/{id}` | ⏳ |
 | Categories | `DELETE /categories/{id}` | ⏳ |
-| Plans | `GET /scenarios?include_archived=` | ⏳ |
+| Plans | `GET /scenarios?include_archived=` | ✅ §9 |
 | Plans | `POST /scenarios` | ✅ §6 |
 | Plans | `GET /scenarios/{id}` | ⏳ |
-| Plans | `PATCH /scenarios/{id}` | ⏳ |
-| Plans | `DELETE /scenarios/{id}` | ⏳ |
-| Plans | `POST /scenarios/{id}/duplicate` | ⏳ |
-| Plans | `POST /scenarios/{id}/archive` | ⏳ |
-| Plans | `POST /scenarios/{id}/unarchive` | ⏳ |
+| Plans | `PATCH /scenarios/{id}` | ✅ §9 |
+| Plans | `DELETE /scenarios/{id}` | ✅ §9 |
+| Plans | `POST /scenarios/{id}/duplicate` | ✅ §9 |
+| Plans | `POST /scenarios/{id}/archive` | ✅ §9 |
+| Plans | `POST /scenarios/{id}/unarchive` | ✅ §9 |
 | Transactions | `GET /scenarios/{id}/transactions?filter=` | ✅ §7 |
 | Transactions | `POST /scenarios/{id}/transactions` | ✅ §8 |
 | Transactions | `PATCH /transactions/{id}` | ✅ §8 |
@@ -423,7 +473,7 @@ Detailed contracts for these land above (or in their own section) once their Fig
 
 ---
 
-## 10. Error code reference (all codes, every endpoint)
+## 11. Error code reference (all codes, every endpoint)
 
 Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — this table exists for the `code` values themselves, to branch client logic on.
 
@@ -462,7 +512,7 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 
 ---
 
-## 11. Open items that affect integration
+## 12. Open items that affect integration
 
 - **Arabic text is unreviewed** (§3.1) — display it, but expect it to be replaced with native-speaker-reviewed copy later without any contract change.
 - **No forgot/reset-password-via-email in this phase** — a user who forgets their password has no self-service recovery until Phase 2; the only password change path is `PATCH /me/password` while logged in (requires the current password). Design the Login screen's "forgot password?" affordance accordingly — either omit it for now or show it as "coming soon."

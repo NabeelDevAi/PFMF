@@ -51,6 +51,8 @@ Built as a small addition beyond the architecture doc's locked §9 surface (see 
 | `POST /scenarios/{id}/archive` | Archive | `scenario.base_immutable`, `resource.not_found` |
 | `POST /scenarios/{id}/unarchive` | Restore from archive | `scenario.not_archived`, `resource.not_found` |
 
+**The Plans list's per-card summary (Balance at 10Y, vs Base, "X modified · Y removed · Z added") has no dedicated endpoint and needs none** — it's derived client-side from calls that already exist: Base's card from its own `GET .../forecast?horizon=120`; every other plan's card from one `GET /forecast/compare?a=<base>&b=<plan>&horizon=120` call (balance + delta) plus one `GET .../transactions?filter=all` call (origin counts). **Deliberately not** `compare`'s own `drivers` list for the modified/removed/added counts — a driver is dropped when a change doesn't move the total (e.g. a name-only override), so it can disagree with the `Modified`/`From Base` badges the Transactions screen already shows for the same row. See `12-open-questions-and-future-hardening.md` §9 item 6 and `API-ENDPOINTS.md` §9.6 for the full reasoning.
+
 ## 5. Transactions
 
 | Endpoint | Purpose | Key error codes |
