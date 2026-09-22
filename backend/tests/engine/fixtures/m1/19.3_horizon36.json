@@ -1,0 +1,271 @@
+{
+  "name": "M1 case 19.3 -- one-time item dated after the forecast period (36-month horizon: included)",
+  "current_balance_minor": 1000000,
+  "anchor_month": "2026-01",
+  "horizon_months": 36,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Bonus",
+      "amount_minor": 2000000,
+      "direction": "income",
+      "recurrence": "one_time",
+      "start_date": "2027-03-15",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2026-01",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-02",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-03",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-04",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-05",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-06",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-07",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-08",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-09",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-10",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-11",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-12",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2027-01",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2027-02",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2027-03",
+      "income_minor": 2000000,
+      "expense_minor": 0,
+      "net_minor": 2000000,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2027-04",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2027-05",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2027-06",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2027-07",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2027-08",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2027-09",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2027-10",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2027-11",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2027-12",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2028-01",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2028-02",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2028-03",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2028-04",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2028-05",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2028-06",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2028-07",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2028-08",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2028-09",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2028-10",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2028-11",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    },
+    {
+      "month": "2028-12",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 3000000
+    }
+  ]
+}

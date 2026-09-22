@@ -1,0 +1,55 @@
+"""App entrypoint. Run locally with: uvicorn app.main:app --reload (from backend/)."""
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from app.api.errors import register_exception_handlers
+from app.api.middleware import RequestIdMiddleware
+from app.api.v1.auth import router as auth_router
+from app.api.v1.categories import router as categories_router
+from app.api.v1.forecast import router as forecast_router
+from app.api.v1.health import router as health_router
+from app.api.v1.me import router as me_router
+from app.api.v1.overlays import router as overlays_router
+from app.api.v1.scenarios import router as scenarios_router
+from app.api.v1.transactions import scenario_transactions_router, transactions_router
+from app.core.avatar_storage import avatars_dir
+from app.core.config import get_settings
+from app.core.logging import configure_logging
+
+
+def create_app() -> FastAPI:
+    settings = get_settings()  # instantiated eagerly so a missing required env var fails fast, now
+    configure_logging(settings.log_level)
+
+    app = FastAPI(title="Horizon Backend", version="0.1.0")
+
+    app.add_middleware(RequestIdMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    register_exception_handlers(app)
+
+    # Local-disk avatar storage (app/core/avatar_storage.py), served back
+    # unauthenticated -- not versioned under /v1, since it's a static file
+    # mount, not part of the JSON API surface.
+    app.mount("/static/avatars", StaticFiles(directory=avatars_dir()), name="avatars")
+
+    app.include_router(health_router, prefix="/v1")
+    app.include_router(auth_router, prefix="/v1")
+    app.include_router(me_router, prefix="/v1")
+    app.include_router(categories_router, prefix="/v1")
+    app.include_router(scenarios_router, prefix="/v1")
+    app.include_router(scenario_transactions_router, prefix="/v1")
+    app.include_router(transactions_router, prefix="/v1")
+    app.include_router(overlays_router, prefix="/v1")
+    app.include_router(forecast_router, prefix="/v1")
+    return app
+
+
+app = create_app()

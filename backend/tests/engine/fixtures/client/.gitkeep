@@ -1,0 +1,5 @@
+Reserved for the client's own independently-verified test cases (see
+claude_docs/backend-plan/12-open-questions-and-future-hardening.md).
+Drop them in as fixture JSON files in this format once obtained --
+no code changes needed, the loader discovers every *.json file under
+tests/engine/fixtures/ recursively.

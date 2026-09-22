@@ -1,0 +1,127 @@
+from __future__ import annotations
+
+import uuid
+
+from sqlalchemy import exists, select
+from sqlalchemy.orm import Session
+
+from app.db.models.scenario import Scenario
+from app.db.models.scenario_overlay import ScenarioOverlay
+
+
+class OverlayRepository:
+    """Scoped by scenario_id, not user_id -- scenario_overlays has no
+    user_id column (see the migration's docstring). Callers (services)
+    must ownership-check the scenario itself first, via ScenarioRepository."""
+
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def list_by_scenario(self, scenario_id: uuid.UUID) -> list[ScenarioOverlay]:
+        return list(
+            self.db.scalars(
+                select(ScenarioOverlay).where(ScenarioOverlay.scenario_id == scenario_id)
+            )
+        )
+
+    def list_all_for_user(self, user_id: uuid.UUID) -> list[ScenarioOverlay]:
+        """Every overlay across every scenario this user owns -- for
+        GET /me/export. The only overlay query that needs a join, since
+        there's no user_id column here to filter on directly."""
+        stmt = (
+            select(ScenarioOverlay)
+            .join(Scenario, ScenarioOverlay.scenario_id == Scenario.id)
+            .where(Scenario.user_id == user_id)
+            .order_by(ScenarioOverlay.scenario_id, ScenarioOverlay.created_at)
+        )
+        return list(self.db.scalars(stmt))
+
+    def exists_with_category_for_user(self, user_id: uuid.UUID, category_id: uuid.UUID) -> bool:
+        """Same purpose as TransactionRepository.exists_with_category: an
+        ovr_category_id also has no ON DELETE rule against categories.
+        No user_id column here, so the join through Scenario (same as
+        list_all_for_user) is what scopes this to the caller."""
+        stmt = select(
+            exists().where(
+                ScenarioOverlay.ovr_category_id == category_id,
+                ScenarioOverlay.scenario_id == Scenario.id,
+                Scenario.user_id == user_id,
+            )
+        )
+        return bool(self.db.scalar(stmt))
+
+    def scenarios_referencing(
+        self, base_transaction_id: uuid.UUID, user_id: uuid.UUID
+    ) -> list[Scenario]:
+        """Every scenario this user owns that holds an overlay on this
+        Base transaction -- backs GET /transactions/{id}/dependents
+        (architecture §6.3/§9, build spec §10.4): the client warns before
+        deleting a Base row exactly when this list is non-empty. One
+        indexed query on scenario_overlays.base_transaction_id (migration
+        0013), joined to scenarios for both the name and the ownership
+        filter."""
+        stmt = (
+            select(Scenario)
+            .join(ScenarioOverlay, ScenarioOverlay.scenario_id == Scenario.id)
+            .where(
+                ScenarioOverlay.base_transaction_id == base_transaction_id,
+                Scenario.user_id == user_id,
+            )
+            .order_by(Scenario.name)
+        )
+        return list(self.db.scalars(stmt))
+
+    def get_by_id(self, scenario_id: uuid.UUID, overlay_id: uuid.UUID) -> ScenarioOverlay | None:
+        return self.db.scalar(
+            select(ScenarioOverlay).where(
+                ScenarioOverlay.id == overlay_id, ScenarioOverlay.scenario_id == scenario_id
+            )
+        )
+
+    def get_by_target(
+        self, scenario_id: uuid.UUID, base_transaction_id: uuid.UUID
+    ) -> ScenarioOverlay | None:
+        return self.db.scalar(
+            select(ScenarioOverlay).where(
+                ScenarioOverlay.scenario_id == scenario_id,
+                ScenarioOverlay.base_transaction_id == base_transaction_id,
+            )
+        )
+
+    def copy_all(self, *, from_scenario_id: uuid.UUID, to_scenario_id: uuid.UUID) -> None:
+        """Used by ScenarioService.duplicate() (D-13, M1 case 25.15): each
+        of the source scenario's overlays gets a fresh id under the new
+        scenario, same base_transaction_id and same op/ovr_* fields --
+        overlays always target a Base row, which duplicating never
+        touches, so the copy keeps an independent live link to the same
+        Base transactions the source overrides or excludes."""
+        for overlay in self.list_by_scenario(from_scenario_id):
+            self.create(
+                scenario_id=to_scenario_id,
+                base_transaction_id=overlay.base_transaction_id,
+                op=overlay.op,
+                ovr_name=overlay.ovr_name,
+                ovr_amount_minor=overlay.ovr_amount_minor,
+                ovr_category_id=overlay.ovr_category_id,
+                ovr_recurrence=overlay.ovr_recurrence,
+                ovr_start_date=overlay.ovr_start_date,
+                ovr_end_date=overlay.ovr_end_date,
+                unset_end_date=overlay.unset_end_date,
+            )
+
+    def create(
+        self, *, scenario_id: uuid.UUID, base_transaction_id: uuid.UUID, **fields
+    ) -> ScenarioOverlay:
+        overlay = ScenarioOverlay(
+            scenario_id=scenario_id, base_transaction_id=base_transaction_id, **fields
+        )
+        self.db.add(overlay)
+        self.db.flush()
+        return overlay
+
+    def save(self, overlay: ScenarioOverlay) -> None:
+        self.db.flush()
+
+    def delete(self, overlay: ScenarioOverlay) -> None:
+        self.db.delete(overlay)
+        self.db.flush()

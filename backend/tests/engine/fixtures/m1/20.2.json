@@ -1,0 +1,47 @@
+{
+  "name": "M1 case 20.2 -- monthly item starting later than the forecast",
+  "current_balance_minor": 1000000,
+  "anchor_month": "2026-01",
+  "horizon_months": 4,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Insurance",
+      "amount_minor": 100000,
+      "direction": "expense",
+      "recurrence": "monthly",
+      "start_date": "2026-03-01",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2026-01",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-02",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-03",
+      "income_minor": 0,
+      "expense_minor": 100000,
+      "net_minor": -100000,
+      "closing_balance_minor": 900000
+    },
+    {
+      "month": "2026-04",
+      "income_minor": 0,
+      "expense_minor": 100000,
+      "net_minor": -100000,
+      "closing_balance_minor": 800000
+    }
+  ]
+}

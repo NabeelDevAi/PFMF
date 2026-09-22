@@ -1,0 +1,47 @@
+{
+  "name": "M1 case 19.1 -- one-time income inside the forecast",
+  "current_balance_minor": 1000000,
+  "anchor_month": "2026-01",
+  "horizon_months": 4,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Bonus",
+      "amount_minor": 1500000,
+      "direction": "income",
+      "recurrence": "one_time",
+      "start_date": "2026-03-20",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2026-01",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-02",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 1000000
+    },
+    {
+      "month": "2026-03",
+      "income_minor": 1500000,
+      "expense_minor": 0,
+      "net_minor": 1500000,
+      "closing_balance_minor": 2500000
+    },
+    {
+      "month": "2026-04",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 2500000
+    }
+  ]
+}

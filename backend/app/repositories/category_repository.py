@@ -1,0 +1,74 @@
+from __future__ import annotations
+
+import uuid
+
+from sqlalchemy import delete, or_, select
+from sqlalchemy.orm import Session
+
+from app.db.models.category import Category
+from app.domain.enums import Direction
+
+
+class CategoryRepository:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def list_for_user(self, user_id: uuid.UUID) -> list[Category]:
+        """System categories (user_id NULL) plus this user's own, ordered
+        the way the client should render them."""
+        stmt = (
+            select(Category)
+            .where(or_(Category.user_id.is_(None), Category.user_id == user_id))
+            .order_by(Category.direction, Category.sort_order)
+        )
+        return list(self.db.scalars(stmt))
+
+    def list_owned_by_user(self, user_id: uuid.UUID) -> list[Category]:
+        """This user's own categories only, excluding system ones -- for
+        GET /me/export (a personal data export has no business including
+        global reference data)."""
+        stmt = (
+            select(Category)
+            .where(Category.user_id == user_id)
+            .order_by(Category.direction, Category.sort_order)
+        )
+        return list(self.db.scalars(stmt))
+
+    def create(self, *, user_id: uuid.UUID, name: str, direction: Direction) -> Category:
+        # key stays NULL -- the category_naming CHECK constraint requires
+        # exactly one of (key, name) depending on whether user_id is set.
+        category = Category(user_id=user_id, name=name, direction=direction)
+        self.db.add(category)
+        self.db.flush()
+        return category
+
+    def delete_all_owned_by_user(self, user_id: uuid.UUID) -> None:
+        self.db.execute(delete(Category).where(Category.user_id == user_id))
+        self.db.flush()
+
+    def get_visible_to_user(self, user_id: uuid.UUID, category_id: uuid.UUID) -> Category | None:
+        """A system category (visible to everyone) or one this user owns --
+        used to validate a transaction's category_id belongs to a category
+        this user is actually allowed to use."""
+        return self.db.scalar(
+            select(Category).where(
+                Category.id == category_id,
+                or_(Category.user_id.is_(None), Category.user_id == user_id),
+            )
+        )
+
+    def get_owned_by_user(self, user_id: uuid.UUID, category_id: uuid.UUID) -> Category | None:
+        """Strictly this user's own -- unlike get_visible_to_user, a system
+        category never matches here. Used by PATCH/DELETE: a system
+        category, or another user's, is 404-equivalent (09 §3), same as
+        any other ownership check in this codebase."""
+        return self.db.scalar(
+            select(Category).where(Category.id == category_id, Category.user_id == user_id)
+        )
+
+    def save(self, category: Category) -> None:
+        self.db.flush()
+
+    def delete(self, category: Category) -> None:
+        self.db.delete(category)
+        self.db.flush()

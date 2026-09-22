@@ -1,0 +1,50 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: FastAPI's own documented idiom is `param: T = Depends(...)` in a
+# route's default arguments -- not the antipattern this rule otherwise
+# correctly catches.
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.mypy]
+# Scoped to the engine only, per backend-plan/12's Tier 2 decision --
+# strict everywhere else is deferred, not silently expanded to it.
+files = ["app/engine"]
+python_version = "3.12"
+strict = true
+
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Engine imports nothing outside itself"
+type = "forbidden"
+source_modules = "app.engine"
+forbidden_modules = [
+    "app.api",
+    "app.db",
+    "app.services",
+    "app.repositories",
+    "app.core",
+    "sqlalchemy",
+    "fastapi",
+    "pydantic",
+]
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture"
+type = "layers"
+layers = [
+    "app.api",
+    "app.services",
+    "app.repositories",
+    "app.db",
+]

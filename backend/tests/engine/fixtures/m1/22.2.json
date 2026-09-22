@@ -1,0 +1,54 @@
+{
+  "name": "M1 case 22.2 -- monthly on the 30th, clamped in short months",
+  "current_balance_minor": 2000000,
+  "anchor_month": "2026-01",
+  "horizon_months": 5,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Rent",
+      "amount_minor": 300000,
+      "direction": "expense",
+      "recurrence": "monthly",
+      "start_date": "2026-01-30",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2026-01",
+      "income_minor": 0,
+      "expense_minor": 300000,
+      "net_minor": -300000,
+      "closing_balance_minor": 1700000
+    },
+    {
+      "month": "2026-02",
+      "income_minor": 0,
+      "expense_minor": 300000,
+      "net_minor": -300000,
+      "closing_balance_minor": 1400000
+    },
+    {
+      "month": "2026-03",
+      "income_minor": 0,
+      "expense_minor": 300000,
+      "net_minor": -300000,
+      "closing_balance_minor": 1100000
+    },
+    {
+      "month": "2026-04",
+      "income_minor": 0,
+      "expense_minor": 300000,
+      "net_minor": -300000,
+      "closing_balance_minor": 800000
+    },
+    {
+      "month": "2026-05",
+      "income_minor": 0,
+      "expense_minor": 300000,
+      "net_minor": -300000,
+      "closing_balance_minor": 500000
+    }
+  ]
+}

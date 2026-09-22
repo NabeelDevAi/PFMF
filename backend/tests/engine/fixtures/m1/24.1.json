@@ -1,0 +1,47 @@
+{
+  "name": "M1 case 24.1 -- weekly, including months with five occurrences",
+  "current_balance_minor": 1000000,
+  "anchor_month": "2026-01",
+  "horizon_months": 4,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Weekly groceries",
+      "amount_minor": 20000,
+      "direction": "expense",
+      "recurrence": "weekly",
+      "start_date": "2026-01-01",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2026-01",
+      "income_minor": 0,
+      "expense_minor": 100000,
+      "net_minor": -100000,
+      "closing_balance_minor": 900000
+    },
+    {
+      "month": "2026-02",
+      "income_minor": 0,
+      "expense_minor": 80000,
+      "net_minor": -80000,
+      "closing_balance_minor": 820000
+    },
+    {
+      "month": "2026-03",
+      "income_minor": 0,
+      "expense_minor": 80000,
+      "net_minor": -80000,
+      "closing_balance_minor": 740000
+    },
+    {
+      "month": "2026-04",
+      "income_minor": 0,
+      "expense_minor": 100000,
+      "net_minor": -100000,
+      "closing_balance_minor": 640000
+    }
+  ]
+}

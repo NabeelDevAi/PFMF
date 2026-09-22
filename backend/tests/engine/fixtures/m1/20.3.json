@@ -1,0 +1,40 @@
+{
+  "name": "M1 case 20.3 -- monthly item that started before the app was used",
+  "current_balance_minor": 6000000,
+  "anchor_month": "2026-01",
+  "horizon_months": 3,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Salary",
+      "amount_minor": 2000000,
+      "direction": "income",
+      "recurrence": "monthly",
+      "start_date": "2024-06-25",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2026-01",
+      "income_minor": 2000000,
+      "expense_minor": 0,
+      "net_minor": 2000000,
+      "closing_balance_minor": 8000000
+    },
+    {
+      "month": "2026-02",
+      "income_minor": 2000000,
+      "expense_minor": 0,
+      "net_minor": 2000000,
+      "closing_balance_minor": 10000000
+    },
+    {
+      "month": "2026-03",
+      "income_minor": 2000000,
+      "expense_minor": 0,
+      "net_minor": 2000000,
+      "closing_balance_minor": 12000000
+    }
+  ]
+}

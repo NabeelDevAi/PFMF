@@ -1,0 +1,48 @@
+{
+  "name": "M1 case 23.1 -- monthly on the 31st through a leap February (balance unspecified; 0 assumed)",
+  "current_balance_minor": 0,
+  "anchor_month": "2028-01",
+  "horizon_months": 4,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Rent",
+      "amount_minor": 300000,
+      "direction": "expense",
+      "recurrence": "monthly",
+      "start_date": "2028-01-31",
+      "end_date": null
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2028-01",
+      "income_minor": 0,
+      "expense_minor": 300000,
+      "net_minor": -300000,
+      "closing_balance_minor": -300000
+    },
+    {
+      "month": "2028-02",
+      "income_minor": 0,
+      "expense_minor": 300000,
+      "net_minor": -300000,
+      "closing_balance_minor": -600000
+    },
+    {
+      "month": "2028-03",
+      "income_minor": 0,
+      "expense_minor": 300000,
+      "net_minor": -300000,
+      "closing_balance_minor": -900000
+    },
+    {
+      "month": "2028-04",
+      "income_minor": 0,
+      "expense_minor": 300000,
+      "net_minor": -300000,
+      "closing_balance_minor": -1200000
+    }
+  ],
+  "_note": "Current Cash Balance not given in the doc for this case; 0 assumed."
+}

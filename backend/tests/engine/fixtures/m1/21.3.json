@@ -1,0 +1,40 @@
+{
+  "name": "M1 case 21.3 -- start and end date on the same day",
+  "current_balance_minor": 1000000,
+  "anchor_month": "2026-01",
+  "horizon_months": 3,
+  "transactions": [
+    {
+      "id": "t1",
+      "name": "Fee",
+      "amount_minor": 50000,
+      "direction": "expense",
+      "recurrence": "monthly",
+      "start_date": "2026-01-10",
+      "end_date": "2026-01-10"
+    }
+  ],
+  "expected_months": [
+    {
+      "month": "2026-01",
+      "income_minor": 0,
+      "expense_minor": 50000,
+      "net_minor": -50000,
+      "closing_balance_minor": 950000
+    },
+    {
+      "month": "2026-02",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 950000
+    },
+    {
+      "month": "2026-03",
+      "income_minor": 0,
+      "expense_minor": 0,
+      "net_minor": 0,
+      "closing_balance_minor": 950000
+    }
+  ]
+}
