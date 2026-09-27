@@ -1,6 +1,6 @@
 # Horizon — API Reference (Flutter Integration)
 
-This is the handoff document for Flutter development. It is a **living document**: as each Figma screen is verified against the backend (screen-by-screen, feature by feature), the endpoint(s) it depends on get their full contract written up here — exact request/response shapes, real examples, every error the client needs to handle. Nothing goes in here as a guess; every entry below was hit with a real HTTP request against the running backend before being written down.
+This is the handoff document for Flutter development. It is a **living document**: as each Figma screen is verified against the backend (screen-by-screen, feature by feature), the endpoint(s) it depends on get their full contract written up here — exact request/response shapes, real examples, every error the client needs to handle. Nothing goes in here as a guess; every entry below was hit with a real HTTP request before being written down — originally against localhost, and as of 2026-09-25 re-verified end-to-end against the live production domain (see §1).
 
 For the full endpoint index (every endpoint that exists, whether or not it's been screen-verified yet), see `backend-plan/08-api-endpoints-plan.md` — that's the internal planning doc. This file is the subset of it that's actually been walked through screen-by-screen, in the detail a client needs to integrate against it.
 
@@ -12,15 +12,18 @@ For the full endpoint index (every endpoint that exists, whether or not it's bee
 
 ## 1. Base URL
 
-No production/staging URL yet — deployment is explicitly not scheduled for this phase. For local development against the backend running on your machine:
+**The backend is now live in production.** Every path below is written **relative to that base** (e.g. `/auth/login` means `https://api-finance-forecast.com/v1/auth/login`).
 
 | Client | Base URL |
 |---|---|
-| Android emulator | `http://10.0.2.2:8000/v1` |
-| iOS simulator | `http://127.0.0.1:8000/v1` |
-| Physical device (same Wi-Fi as the dev machine) | `http://<dev-machine-LAN-IP>:8000/v1` |
+| **Production (all clients, real devices and emulators/simulators alike)** | `https://api-finance-forecast.com/v1` |
+| Android emulator (local dev only, backend running on your machine) | `http://10.0.2.2:8000/v1` |
+| iOS simulator (local dev only) | `http://127.0.0.1:8000/v1` |
+| Physical device on dev Wi-Fi (local dev only) | `http://<dev-machine-LAN-IP>:8000/v1` |
 
-Every path below is written **relative to that base** (e.g. `/auth/login` means `http://10.0.2.2:8000/v1/auth/login`). The server is started with `uvicorn app.main:app --reload` from `backend/`, default port `8000`.
+The local URLs still work for local development against `uvicorn app.main:app --reload` (`backend/`, default port `8000`) if you need to test against in-progress backend changes that aren't deployed yet. **The Flutter app should point at the production URL by default** — every endpoint in this document (auth, balance, plans, transactions, categories, overlays, forecast/compare, settings, password, avatar, export, reset, delete) was re-verified end-to-end against `https://api-finance-forecast.com` on 2026-09-25, not just localhost.
+
+The static avatar host (§12.2) is the same domain **without** the `/v1` suffix: `https://api-finance-forecast.com/static/avatars/...`.
 
 Mobile-only (confirmed) — CORS is a browser-only restriction and does not apply to native Android/iOS HTTP calls, so it's a non-issue here.
 
@@ -591,7 +594,7 @@ Same `MeOut`/`SettingsOut` shape as everywhere else this endpoint appears. The n
 }
 ```
 
-**`avatar_url` is `null` until a photo is ever uploaded, then a relative path** — not a full URL. Prepend your app's own configured base host (the same one from §1, **without** the `/v1` suffix — this route isn't versioned, it's a static file mount, not part of the JSON API). E.g. base `http://10.0.2.2:8000` + `avatar_url` → `http://10.0.2.2:8000/static/avatars/e39c420b-....png`. The route is unauthenticated (no `Authorization` header needed to load the image itself) — anyone with the exact URL can view it, but filenames are random UUIDs, never sequential or derived from the user id, so there's nothing to enumerate.
+**`avatar_url` is `null` until a photo is ever uploaded, then a relative path** — not a full URL. Prepend your app's own configured base host (the same one from §1, **without** the `/v1` suffix — this route isn't versioned, it's a static file mount, not part of the JSON API). E.g. production base `https://api-finance-forecast.com` + `avatar_url` → `https://api-finance-forecast.com/static/avatars/e39c420b-....png`. The route is unauthenticated (no `Authorization` header needed to load the image itself) — anyone with the exact URL can view it, but filenames are random UUIDs, never sequential or derived from the user id, so there's nothing to enumerate. **Verified live against production:** uploaded an avatar, fetched the resulting `avatar_url` with no `Authorization` header, got `200` back with the image bytes.
 
 ### 12.3 Errors
 
@@ -821,4 +824,4 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 
 - **Arabic text is unreviewed** (§3.1) — display it, but expect it to be replaced with native-speaker-reviewed copy later without any contract change.
 - **No forgot/reset-password-via-email in this phase** — a user who forgets their password has no self-service recovery until Phase 2; the only password change path is `PATCH /me/password` while logged in (requires the current password). Design the Login screen's "forgot password?" affordance accordingly — either omit it for now or show it as "coming soon."
-- **No production/staging base URL yet** — deployment is deliberately held; §1's local URLs are all that exist right now.
+- **Production is live** (§1) — `https://api-finance-forecast.com/v1`, deployed per `deployment-guide.md`. Every endpoint in this document has been re-verified against it (2026-09-25). Avatar storage is still local disk on that one droplet (§12.3's caveat still applies as written — it hasn't moved to object storage).
