@@ -28,9 +28,20 @@ class RefreshTokenRepository:
             self.db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).one_or_none()
         )
 
-    def mark_used(self, token: RefreshToken) -> None:
-        token.used_at = datetime.now(UTC)
+    def try_mark_used(self, token_id: uuid.UUID) -> bool:
+        """Atomically claims a refresh token for rotation: sets used_at only
+        if it is still NULL, in one round trip, so two concurrent requests
+        for the same token can't both read used_at=NULL and both proceed --
+        the WHERE clause is the check, not a separate SELECT beforehand.
+        Returns whether *this* call won the claim; a caller that loses must
+        treat that exactly like an already-used token (replay signal)."""
+        result = self.db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.id == token_id, RefreshToken.used_at.is_(None))
+            .values(used_at=datetime.now(UTC))
+        )
         self.db.flush()
+        return result.rowcount > 0
 
     def revoke_family(self, family_id: uuid.UUID) -> None:
         """Revokes every token in the family, including ones issued after

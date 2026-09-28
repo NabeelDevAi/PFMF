@@ -83,7 +83,19 @@ class AuthService:
         if token is None or token.revoked_at is not None:
             raise APIError("auth.token_invalid")
 
-        if token.used_at is not None:
+        if token.expires_at < datetime.now(UTC):
+            raise APIError("auth.token_invalid")
+
+        # The used_at check-and-set must be one atomic operation, not a read
+        # here followed by a write below: two concurrent requests for the
+        # same token would otherwise both read used_at=NULL and both go on
+        # to rotate, defeating reuse detection entirely (an attacker racing
+        # a legitimate client would just get a valid token instead of
+        # tripping the family revocation below). try_mark_used's WHERE
+        # clause is the check; only the request that actually flips
+        # used_at wins the claim, so a losing concurrent request lands here
+        # exactly like an already-used token would.
+        if not self.refresh_tokens.try_mark_used(token.id):
             # Reuse of an already-rotated-away-from token: standard replay
             # signal. Revoke the whole family -- including any legitimately
             # newer token in it, since we can no longer tell which party
@@ -100,10 +112,6 @@ class AuthService:
             )
             raise APIError("auth.token_invalid")
 
-        if token.expires_at < datetime.now(UTC):
-            raise APIError("auth.token_invalid")
-
-        self.refresh_tokens.mark_used(token)
         return self._issue_tokens(token.user_id, family_id=token.family_id)
 
     def logout(self, *, refresh_token: str) -> None:
