@@ -262,7 +262,9 @@ def test_delete_category_in_use_by_an_overlay_is_conflict(client: TestClient) ->
             "start_date": "2026-01-01",
         },
     ).json()
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     category = client.post(
         "/v1/categories", headers=headers, json={"name": "Housing", "direction": "expense"}
     ).json()

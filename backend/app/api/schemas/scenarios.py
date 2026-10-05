@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ScenarioOut(BaseModel):
@@ -23,7 +23,7 @@ class ScenarioListOut(BaseModel):
 
 
 class ScenarioCreate(BaseModel):
-    name: str
+    name: list[str] = Field(min_length=1)
     current_balance_override_minor: int | None = None
 
 

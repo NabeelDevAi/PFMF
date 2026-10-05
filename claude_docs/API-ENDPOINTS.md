@@ -214,37 +214,44 @@ Changing it re-anchors every plan's forecast (the whole point of the Current Cas
 
 ### `POST /scenarios`
 
-Creates a new plan ("scenario" internally) for the caller. Every new account already has exactly one plan from registration — the **Base Plan** (`is_base: true`) — which cannot be created, renamed away from, deleted, or archived by this or any other endpoint; this call always creates a new, non-Base plan alongside it.
+Creates one or more new plans ("scenario" internally) for the caller in a single call. Every new account already has exactly one plan from registration — the **Base Plan** (`is_base: true`) — which cannot be created, renamed away from, deleted, or archived by this or any other endpoint; this call always creates a new, non-Base plan alongside it.
 
-**Request** (this screen only ever sends `name`):
+**Request** (this screen only ever sends `name`, now a non-empty list of names; send a one-element list to create a single plan):
 ```json
 {
-  "name": "Buy a House"
+  "name": ["Buy a House", "Retire Early"]
 }
 ```
 
-The schema also accepts an optional `current_balance_override_minor` (a per-plan override of the Current Cash Balance) — **not used by this screen**, so omit it entirely; it's documented in full whenever the screen that actually sets it is verified.
+The schema also accepts an optional `current_balance_override_minor` (a per-plan override of the Current Cash Balance, applied to **every** plan created by the call) — **not used by this screen**, so omit it entirely; it's documented in full whenever the screen that actually sets it is verified.
 
 **Success — `201 Created`:**
+`items` is in the same order as the request's `name`:
 ```json
 {
-  "id": "d9036867-8a86-41be-a3af-475b0cd2ff06",
-  "name": "Buy a House",
-  "is_base": false,
-  "current_balance_override_minor": null,
-  "archived_at": null,
-  "created_at": "2026-09-16T16:34:56.804502+05:00",
-  "updated_at": "2026-09-16T16:34:56.804502+05:00"
+  "items": [
+    {
+      "id": "d9036867-8a86-41be-a3af-475b0cd2ff06",
+      "name": "Buy a House",
+      "is_base": false,
+      "current_balance_override_minor": null,
+      "archived_at": null,
+      "created_at": "2026-09-16T16:34:56.804502+05:00",
+      "updated_at": "2026-09-16T16:34:56.804502+05:00"
+    }
+  ]
 }
 ```
+
+**All-or-nothing:** if any name fails validation, no plan from the request is created.
 
 **Errors:**
 
 | `code` | HTTP | When |
 |---|---|---|
-| `scenario.name_taken` | 409 | The caller already has a plan with this exact name — **including the Base Plan's own name ("Base Plan") and any archived plan's name.** Uniqueness is per-user across every plan regardless of archived state, not just active ones. |
-| `validation.invalid` | 422 | Name is blank or whitespace-only after trimming (e.g. `""`, `"   "`) |
-| `validation.required` | 422 | Name missing entirely |
+| `scenario.name_taken` | 409 | The same name appears twice in `name`, or the caller already has a plan with this exact name — **including the Base Plan's own name ("Base Plan") and any archived plan's name.** Uniqueness is per-user across every plan regardless of archived state, not just active ones. |
+| `validation.invalid` | 422 | Any name is blank or whitespace-only after trimming (e.g. `""`, `"   "`) |
+| `validation.required` | 422 | `name` missing entirely, or an empty list |
 
 **Name matching is exact and case-sensitive, with no trimming of the stored value.** `"Buy a House"` and `"buy a house"` are treated as different, non-conflicting names; a name with accidental leading/trailing spaces (e.g. `"  Buy a House  "`) is stored exactly as typed, not trimmed. Only a name that's *entirely* whitespace is rejected (see `validation.invalid` above) — trim on the client side before sending if you want to avoid the case-sensitivity/whitespace edge cases from ever reaching the user as a confusing "already taken" or "looks identical but isn't" situation.
 

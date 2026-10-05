@@ -31,15 +31,17 @@ def list_scenarios(
     return ScenarioListOut(items=[ScenarioOut.model_validate(s) for s in scenarios])
 
 
-@router.post("", response_model=ScenarioOut, status_code=status.HTTP_201_CREATED)
-def create_scenario(
+@router.post("", response_model=ScenarioListOut, status_code=status.HTTP_201_CREATED)
+def create_scenarios(
     body: ScenarioCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)
-) -> ScenarioOut:
-    scenario = ScenarioService(db).create(
-        user.id, name=body.name, current_balance_override_minor=body.current_balance_override_minor
+) -> ScenarioListOut:
+    scenarios = ScenarioService(db).create_many(
+        user.id,
+        names=body.name,
+        current_balance_override_minor=body.current_balance_override_minor,
     )
     db.commit()
-    return ScenarioOut.model_validate(scenario)
+    return ScenarioListOut(items=[ScenarioOut.model_validate(s) for s in scenarios])
 
 
 @router.get("/{scenario_id}", response_model=ScenarioOut)

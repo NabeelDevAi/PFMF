@@ -61,7 +61,9 @@ def test_create_and_list_transaction(client: TestClient) -> None:
 
 def test_added_transaction_in_non_base_scenario_has_added_origin(client: TestClient) -> None:
     headers = _auth_headers(client)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     created = _create_txn(client, headers, plan["id"], name="Mortgage")
     assert created["origin"] == "added"
     assert created["overlay_id"] is None  # no overlay -- this row isn't one
@@ -291,7 +293,9 @@ def test_dependents_is_empty_for_a_scenario_local_transaction(client: TestClient
     an overlay target -- overlays only ever target Base rows -- so this
     is a plain empty result, not an error."""
     headers = _auth_headers(client, email="localdeps@example.com")
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     txn = _create_txn(client, headers, plan["id"], name="Mortgage")
 
     resp = client.get(f"/v1/transactions/{txn['id']}/dependents", headers=headers)
@@ -304,8 +308,12 @@ def test_dependents_lists_every_scenario_holding_an_overlay(client: TestClient) 
     base_id = _base_scenario_id(client, headers)
     rent = _create_txn(client, headers, base_id)
 
-    plan_a = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
-    plan_b = client.post("/v1/scenarios", headers=headers, json={"name": "Retire Early"}).json()
+    plan_a = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
+    plan_b = client.post("/v1/scenarios", headers=headers, json={"name": ["Retire Early"]}).json()[
+        "items"
+    ][0]
     client.post(
         f"/v1/scenarios/{plan_a['id']}/overlays",
         headers=headers,
@@ -317,7 +325,7 @@ def test_dependents_lists_every_scenario_holding_an_overlay(client: TestClient) 
         json={"base_transaction_id": rent["id"], "op": "override", "ovr_amount_minor": 350000},
     )
     # A third plan with no overlay on this transaction -- must not appear.
-    client.post("/v1/scenarios", headers=headers, json={"name": "Untouched"})
+    client.post("/v1/scenarios", headers=headers, json={"name": ["Untouched"]})
 
     resp = client.get(f"/v1/transactions/{rent['id']}/dependents", headers=headers)
     assert resp.status_code == 200

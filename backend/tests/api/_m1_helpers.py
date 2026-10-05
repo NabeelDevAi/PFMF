@@ -100,9 +100,9 @@ def _add_transaction(
 
 
 def create_plan(client: TestClient, headers: dict, name: str, **overrides) -> dict:
-    resp = client.post("/v1/scenarios", headers=headers, json={"name": name, **overrides})
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": [name], **overrides})
     assert resp.status_code == 201, resp.text
-    return resp.json()
+    return resp.json()["items"][0]
 
 
 def forecast(

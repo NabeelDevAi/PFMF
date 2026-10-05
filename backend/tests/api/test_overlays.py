@@ -46,7 +46,9 @@ def test_exclude_overlay_removes_transaction_from_resolved_list(client: TestClie
     headers = _auth_headers(client)
     base_id = _base_id(client, headers)
     rent = _add_base_transaction(client, headers, base_id)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
 
     assert len(_resolved(client, headers, plan["id"])) == 1  # inherited before any overlay
 
@@ -67,7 +69,9 @@ def test_override_overlay_patches_resolved_values(client: TestClient) -> None:
     headers = _auth_headers(client)
     base_id = _base_id(client, headers)
     rent = _add_base_transaction(client, headers, base_id)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
 
     resp = client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
@@ -97,7 +101,9 @@ def test_duplicate_overlay_for_same_target_is_conflict(client: TestClient) -> No
     headers = _auth_headers(client)
     base_id = _base_id(client, headers)
     rent = _add_base_transaction(client, headers, base_id)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
 
     client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
@@ -116,7 +122,9 @@ def test_duplicate_overlay_for_same_target_is_conflict(client: TestClient) -> No
 def test_overlay_cannot_target_a_transaction_outside_base(client: TestClient) -> None:
     headers = _auth_headers(client)
     base_id = _base_id(client, headers)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     # A transaction that only exists in the derived plan, not Base.
     mortgage = _add_base_transaction(client, headers, plan["id"], name="Mortgage")
 
@@ -148,7 +156,9 @@ def test_override_amount_not_positive_is_rejected(client: TestClient) -> None:
     headers = _auth_headers(client)
     base_id = _base_id(client, headers)
     rent = _add_base_transaction(client, headers, base_id)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
 
     resp = client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
@@ -163,7 +173,9 @@ def test_override_resulting_one_time_with_end_date_is_rejected(client: TestClien
     headers = _auth_headers(client)
     base_id = _base_id(client, headers)
     rent = _add_base_transaction(client, headers, base_id)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
 
     resp = client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
@@ -183,7 +195,9 @@ def test_patch_overlay_updates_resolved_view(client: TestClient) -> None:
     headers = _auth_headers(client)
     base_id = _base_id(client, headers)
     rent = _add_base_transaction(client, headers, base_id)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     created = client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
         headers=headers,
@@ -206,7 +220,9 @@ def test_patch_overlay_unset_end_date_makes_it_open_ended(client: TestClient) ->
     headers = _auth_headers(client)
     base_id = _base_id(client, headers)
     rent = _add_base_transaction(client, headers, base_id, end_date="2026-12-01")
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     created = client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
         headers=headers,
@@ -233,7 +249,9 @@ def test_delete_overlay_reverts_to_inherited(client: TestClient) -> None:
     headers = _auth_headers(client)
     base_id = _base_id(client, headers)
     rent = _add_base_transaction(client, headers, base_id)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     created = client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
         headers=headers,
@@ -252,7 +270,9 @@ def test_delete_exclude_overlay_undoes_the_exclusion(client: TestClient) -> None
     headers = _auth_headers(client)
     base_id = _base_id(client, headers)
     rent = _add_base_transaction(client, headers, base_id)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     created = client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
         headers=headers,
@@ -271,7 +291,9 @@ def test_removed_filter_shows_only_excluded_rows_with_overlay_id(client: TestCli
     base_id = _base_id(client, headers)
     rent = _add_base_transaction(client, headers, base_id, name="Rent")
     groceries = _add_base_transaction(client, headers, base_id, name="Groceries")
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
 
     excluded = client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
@@ -310,7 +332,9 @@ def test_all_filter_combines_active_and_removed_rows(client: TestClient) -> None
     base_id = _base_id(client, headers)
     rent = _add_base_transaction(client, headers, base_id, name="Rent")
     groceries = _add_base_transaction(client, headers, base_id, name="Groceries")
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
 
     client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
@@ -364,7 +388,9 @@ def test_overlay_not_found_for_another_user_returns_404(client: TestClient) -> N
     headers_b = _auth_headers(client, email="intruder4@example.com")
     base_id_a = _base_id(client, headers_a)
     rent = _add_base_transaction(client, headers_a, base_id_a)
-    plan_a = client.post("/v1/scenarios", headers=headers_a, json={"name": "Buy House"}).json()
+    plan_a = client.post("/v1/scenarios", headers=headers_a, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     overlay = client.post(
         f"/v1/scenarios/{plan_a['id']}/overlays",
         headers=headers_a,
@@ -391,7 +417,9 @@ def test_overlay_cannot_target_another_users_base_transaction(client: TestClient
     headers_b = _auth_headers(client, email="intruder5@example.com")
     base_id_a = _base_id(client, headers_a)
     rent_a = _add_base_transaction(client, headers_a, base_id_a)
-    plan_b = client.post("/v1/scenarios", headers=headers_b, json={"name": "B's plan"}).json()
+    plan_b = client.post("/v1/scenarios", headers=headers_b, json={"name": ["B's plan"]}).json()[
+        "items"
+    ][0]
 
     resp = client.post(
         f"/v1/scenarios/{plan_b['id']}/overlays",

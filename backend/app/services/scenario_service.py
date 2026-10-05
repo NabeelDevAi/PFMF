@@ -40,16 +40,31 @@ class ScenarioService:
             raise APIError("resource.not_found")
         return scenario
 
-    def create(
-        self, user_id: uuid.UUID, *, name: str, current_balance_override_minor: int | None = None
-    ) -> Scenario:
-        self._validate_name(name)
-        self._check_name_available(user_id, name)
-        return self.scenarios.create(
-            user_id=user_id,
-            name=name,
-            current_balance_override_minor=current_balance_override_minor,
-        )
+    def create_many(
+        self,
+        user_id: uuid.UUID,
+        *,
+        names: list[str],
+        current_balance_override_minor: int | None = None,
+    ) -> list[Scenario]:
+        """Creates every plan or none: all names are validated (including
+        duplicates within the request) before the first insert, and the
+        caller commits once afterwards."""
+        seen: set[str] = set()
+        for name in names:
+            self._validate_name(name)
+            if name in seen:
+                raise APIError("scenario.name_taken", {"field": "name"})
+            seen.add(name)
+            self._check_name_available(user_id, name)
+        return [
+            self.scenarios.create(
+                user_id=user_id,
+                name=name,
+                current_balance_override_minor=current_balance_override_minor,
+            )
+            for name in names
+        ]
 
     def patch(
         self,

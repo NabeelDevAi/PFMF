@@ -52,7 +52,9 @@ def test_export_includes_scenarios_transactions_and_overlays(client: TestClient)
             "start_date": "2026-01-01",
         },
     ).json()
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
         headers=headers,
@@ -77,7 +79,9 @@ def test_export_includes_scenarios_transactions_and_overlays(client: TestClient)
 
 def test_export_includes_archived_scenarios(client: TestClient) -> None:
     headers = _auth_headers(client, email="archived@example.com")
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Someday"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Someday"]}).json()[
+        "items"
+    ][0]
     client.post(f"/v1/scenarios/{plan['id']}/archive", headers=headers)
 
     # Archived scenarios are hidden from the default list...
@@ -161,7 +165,9 @@ def test_export_csv_format_returns_a_zip_of_five_csv_files(client: TestClient) -
             "category_id": category["id"],
         },
     ).json()
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
         headers=headers,

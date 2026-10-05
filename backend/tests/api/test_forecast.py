@@ -117,8 +117,8 @@ def test_forecast_uses_scenario_current_balance_override(client: TestClient) -> 
     plan = client.post(
         "/v1/scenarios",
         headers=headers,
-        json={"name": "Buy House", "current_balance_override_minor": 999999},
-    ).json()
+        json={"name": ["Buy House"], "current_balance_override_minor": 999999},
+    ).json()["items"][0]
 
     resp = client.get(
         f"/v1/scenarios/{plan['id']}/forecast", headers=headers, params={"horizon": 12}
@@ -293,7 +293,9 @@ def test_compare_never_includes_occurrences(client: TestClient) -> None:
     would do, since there's no query param for it on this route."""
     headers = _auth_headers(client, email="cmpoccur@example.com")
     base_id = _base_id(client, headers)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Plan B"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Plan B"]}).json()[
+        "items"
+    ][0]
 
     resp = client.get(
         "/v1/forecast/compare",
@@ -340,7 +342,9 @@ def test_compare_omitted_anchor_defaults_identically_for_both_sides(client: Test
     headers = _auth_headers(client, email="cmpanchor@example.com")
     _set_current_balance(client, headers, 100000)  # balance_as_of = 2026-01-01
     base_id = _base_id(client, headers)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Side Income"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Side Income"]}).json()[
+        "items"
+    ][0]
 
     resp = client.get(
         "/v1/forecast/compare",
@@ -366,7 +370,9 @@ def test_compare_base_against_derived_scenario_drivers_and_deltas(client: TestCl
             "start_date": "2026-01-01",
         },
     ).json()
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
         headers=headers,
@@ -420,7 +426,9 @@ def test_compare_driver_active_months_reflects_a_mid_horizon_start(client: TestC
     window (e.g. an item added partway through)."""
     headers = _auth_headers(client, email="cmpmonths@example.com")
     base_id = _base_id(client, headers)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     client.post(
         f"/v1/scenarios/{plan['id']}/transactions",
         headers=headers,
@@ -450,7 +458,9 @@ def test_compare_percentage_is_none_when_baseline_month_is_zero(client: TestClie
     headers = _auth_headers(client, email="cmppct@example.com")
     # Current Cash Balance 0, no transactions -> every month is 0
     base_id = _base_id(client, headers)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Side Income"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Side Income"]}).json()[
+        "items"
+    ][0]
     client.post(
         f"/v1/scenarios/{plan['id']}/transactions",
         headers=headers,
@@ -474,6 +484,8 @@ def test_compare_percentage_is_none_when_baseline_month_is_zero(client: TestClie
 def test_compare_requires_auth(client: TestClient) -> None:
     headers = _auth_headers(client, email="cmpnoauth@example.com")
     base_id = _base_id(client, headers)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Other"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Other"]}).json()["items"][
+        0
+    ]
     resp = client.get("/v1/forecast/compare", params={"a": base_id, "b": plan["id"], "horizon": 12})
     assert resp.status_code == 401

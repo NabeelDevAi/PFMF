@@ -27,32 +27,70 @@ def test_register_creates_exactly_one_base_scenario(client: TestClient) -> None:
 
 def test_create_scenario(client: TestClient) -> None:
     headers = _auth_headers(client)
-    resp = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"})
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]})
     assert resp.status_code == 201
-    body = resp.json()
-    assert body["name"] == "Buy House"
-    assert body["is_base"] is False
-    assert body["current_balance_override_minor"] is None
+    items = resp.json()["items"]
+    assert len(items) == 1
+    assert items[0]["name"] == "Buy House"
+    assert items[0]["is_base"] is False
+    assert items[0]["current_balance_override_minor"] is None
+
+
+def test_create_multiple_scenarios_in_one_call(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    resp = client.post(
+        "/v1/scenarios", headers=headers, json={"name": ["Buy House", "Retire Early"]}
+    )
+    assert resp.status_code == 201
+    assert [i["name"] for i in resp.json()["items"]] == ["Buy House", "Retire Early"]
+    assert all(i["is_base"] is False for i in resp.json()["items"])
+
+    listed = client.get("/v1/scenarios", headers=headers).json()["items"]
+    assert [i["name"] for i in listed] == ["Base Plan", "Buy House", "Retire Early"]
+
+
+def test_create_scenarios_rejects_an_empty_names_list(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": []})
+    assert resp.status_code == 422
+
+
+def test_create_scenarios_rejects_duplicate_names_in_one_request(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": ["Dup", "Dup"]})
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "scenario.name_taken"
+    listed = client.get("/v1/scenarios", headers=headers).json()["items"]
+    assert [i["name"] for i in listed] == ["Base Plan"]
+
+
+def test_create_scenarios_is_all_or_nothing(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    client.post("/v1/scenarios", headers=headers, json={"name": ["Taken"]})
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": ["Fresh", "Taken"]})
+    assert resp.status_code == 409
+    listed = client.get("/v1/scenarios", headers=headers).json()["items"]
+    assert [i["name"] for i in listed] == ["Base Plan", "Taken"]
 
 
 def test_create_scenario_rejects_a_blank_name(client: TestClient) -> None:
     headers = _auth_headers(client)
-    resp = client.post("/v1/scenarios", headers=headers, json={"name": ""})
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": [""]})
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "validation.invalid"
 
 
 def test_create_scenario_rejects_a_whitespace_only_name(client: TestClient) -> None:
     headers = _auth_headers(client)
-    resp = client.post("/v1/scenarios", headers=headers, json={"name": "   "})
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": ["   "]})
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "validation.invalid"
 
 
 def test_create_scenario_duplicate_name_is_conflict(client: TestClient) -> None:
     headers = _auth_headers(client)
-    client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"})
-    resp = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"})
+    client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]})
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]})
     assert resp.status_code == 409
     assert resp.json()["error"]["code"] == "scenario.name_taken"
 
@@ -85,7 +123,9 @@ def test_base_scenario_cannot_be_archived(client: TestClient) -> None:
 
 def test_non_base_scenario_can_be_deleted(client: TestClient) -> None:
     headers = _auth_headers(client)
-    created = client.post("/v1/scenarios", headers=headers, json={"name": "Temp"}).json()
+    created = client.post("/v1/scenarios", headers=headers, json={"name": ["Temp"]}).json()[
+        "items"
+    ][0]
     resp = client.delete(f"/v1/scenarios/{created['id']}", headers=headers)
     assert resp.status_code == 200
     assert client.get(f"/v1/scenarios/{created['id']}", headers=headers).status_code == 404
@@ -93,7 +133,9 @@ def test_non_base_scenario_can_be_deleted(client: TestClient) -> None:
 
 def test_archive_and_unarchive_round_trip(client: TestClient) -> None:
     headers = _auth_headers(client)
-    created = client.post("/v1/scenarios", headers=headers, json={"name": "Someday"}).json()
+    created = client.post("/v1/scenarios", headers=headers, json={"name": ["Someday"]}).json()[
+        "items"
+    ][0]
 
     archived = client.post(f"/v1/scenarios/{created['id']}/archive", headers=headers)
     assert archived.status_code == 200
@@ -114,7 +156,9 @@ def test_archive_and_unarchive_round_trip(client: TestClient) -> None:
 
 def test_unarchive_a_scenario_that_is_not_archived_is_rejected(client: TestClient) -> None:
     headers = _auth_headers(client)
-    created = client.post("/v1/scenarios", headers=headers, json={"name": "Never archived"}).json()
+    created = client.post(
+        "/v1/scenarios", headers=headers, json={"name": ["Never archived"]}
+    ).json()["items"][0]
 
     resp = client.post(f"/v1/scenarios/{created['id']}/unarchive", headers=headers)
     assert resp.status_code == 409
@@ -125,7 +169,9 @@ def test_archived_scenario_is_rejected_as_a_duplicate_source(client: TestClient)
     """Architecture §6.2: rejected as a duplicate source -- restore first
     (screen-flow §8.1)."""
     headers = _auth_headers(client)
-    created = client.post("/v1/scenarios", headers=headers, json={"name": "Someday"}).json()
+    created = client.post("/v1/scenarios", headers=headers, json={"name": ["Someday"]}).json()[
+        "items"
+    ][0]
     client.post(f"/v1/scenarios/{created['id']}/archive", headers=headers)
 
     resp = client.post(f"/v1/scenarios/{created['id']}/duplicate", headers=headers, json={})
@@ -137,7 +183,9 @@ def test_archived_scenario_is_rejected_as_a_compare_operand(client: TestClient) 
     """Architecture §6.2: rejected as a comparison operand."""
     headers = _auth_headers(client)
     base_id = _list_scenarios(client, headers)[0]["id"]
-    created = client.post("/v1/scenarios", headers=headers, json={"name": "Someday"}).json()
+    created = client.post("/v1/scenarios", headers=headers, json={"name": ["Someday"]}).json()[
+        "items"
+    ][0]
     client.post(f"/v1/scenarios/{created['id']}/archive", headers=headers)
 
     resp = client.get(
@@ -160,7 +208,9 @@ def test_archived_scenario_is_rejected_as_a_compare_operand(client: TestClient) 
 
 def test_patch_scenario_rename_and_current_balance_override(client: TestClient) -> None:
     headers = _auth_headers(client)
-    created = client.post("/v1/scenarios", headers=headers, json={"name": "Draft"}).json()
+    created = client.post("/v1/scenarios", headers=headers, json={"name": ["Draft"]}).json()[
+        "items"
+    ][0]
 
     resp = client.patch(
         f"/v1/scenarios/{created['id']}",
@@ -177,8 +227,8 @@ def test_patch_scenario_unset_current_balance_override(client: TestClient) -> No
     created = client.post(
         "/v1/scenarios",
         headers=headers,
-        json={"name": "Draft", "current_balance_override_minor": 100},
-    ).json()
+        json={"name": ["Draft"], "current_balance_override_minor": 100},
+    ).json()["items"][0]
 
     resp = client.patch(
         f"/v1/scenarios/{created['id']}",
@@ -191,7 +241,9 @@ def test_patch_scenario_unset_current_balance_override(client: TestClient) -> No
 
 def test_patch_scenario_rejects_a_blank_name(client: TestClient) -> None:
     headers = _auth_headers(client)
-    created = client.post("/v1/scenarios", headers=headers, json={"name": "Draft"}).json()
+    created = client.post("/v1/scenarios", headers=headers, json={"name": ["Draft"]}).json()[
+        "items"
+    ][0]
 
     resp = client.patch(f"/v1/scenarios/{created['id']}", headers=headers, json={"name": "   "})
     assert resp.status_code == 422
@@ -200,7 +252,9 @@ def test_patch_scenario_rejects_a_blank_name(client: TestClient) -> None:
 
 def test_duplicate_scenario_rejects_a_blank_name(client: TestClient) -> None:
     headers = _auth_headers(client)
-    source = client.post("/v1/scenarios", headers=headers, json={"name": "Source"}).json()
+    source = client.post("/v1/scenarios", headers=headers, json={"name": ["Source"]}).json()[
+        "items"
+    ][0]
 
     resp = client.post(
         f"/v1/scenarios/{source['id']}/duplicate", headers=headers, json={"name": "  "}
@@ -211,7 +265,9 @@ def test_duplicate_scenario_rejects_a_blank_name(client: TestClient) -> None:
 
 def test_duplicate_scenario_copies_own_transactions_with_a_new_id(client: TestClient) -> None:
     headers = _auth_headers(client)
-    source = client.post("/v1/scenarios", headers=headers, json={"name": "Source"}).json()
+    source = client.post("/v1/scenarios", headers=headers, json={"name": ["Source"]}).json()[
+        "items"
+    ][0]
     client.post(
         f"/v1/scenarios/{source['id']}/transactions",
         headers=headers,
@@ -302,7 +358,9 @@ def test_duplicate_of_derived_scenario_copies_its_overlays(client: TestClient) -
             "start_date": "2026-01-01",
         },
     ).json()
-    source = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    source = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     client.post(
         f"/v1/scenarios/{source['id']}/overlays",
         headers=headers,
@@ -336,7 +394,9 @@ def test_duplicate_is_independent_of_its_source(client: TestClient) -> None:
             "start_date": "2026-01-01",
         },
     ).json()
-    source = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    source = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     overlay = client.post(
         f"/v1/scenarios/{source['id']}/overlays",
         headers=headers,
@@ -377,7 +437,9 @@ def test_duplicate_keeps_live_base_inheritance(client: TestClient) -> None:
             "start_date": "2026-01-01",
         },
     ).json()
-    source = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    source = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     client.post(
         f"/v1/scenarios/{source['id']}/overlays",
         headers=headers,
@@ -398,7 +460,9 @@ def test_duplicate_keeps_live_base_inheritance(client: TestClient) -> None:
 def test_scenario_not_found_for_another_user_returns_404_not_403(client: TestClient) -> None:
     headers_a = _auth_headers(client, email="owner@example.com")
     headers_b = _auth_headers(client, email="intruder@example.com")
-    scenario = client.post("/v1/scenarios", headers=headers_a, json={"name": "Private Plan"}).json()
+    scenario = client.post(
+        "/v1/scenarios", headers=headers_a, json={"name": ["Private Plan"]}
+    ).json()["items"][0]
 
     resp = client.get(f"/v1/scenarios/{scenario['id']}", headers=headers_b)
     assert resp.status_code == 404
@@ -414,5 +478,5 @@ def test_no_limit_on_number_of_scenarios(client: TestClient) -> None:
     carve-out). Creating well past the old threshold must keep working."""
     headers = _auth_headers(client)
     for i in range(60):
-        resp = client.post("/v1/scenarios", headers=headers, json={"name": f"Plan {i}"})
+        resp = client.post("/v1/scenarios", headers=headers, json={"name": [f"Plan {i}"]})
         assert resp.status_code == 201

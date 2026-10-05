@@ -39,7 +39,9 @@ def _setup_data(client: TestClient, headers: dict) -> dict:
             "start_date": "2026-01-01",
         },
     ).json()
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": "Buy House"}).json()
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Buy House"]}).json()[
+        "items"
+    ][0]
     client.post(
         f"/v1/scenarios/{plan['id']}/overlays",
         headers=headers,
