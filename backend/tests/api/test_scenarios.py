@@ -705,3 +705,115 @@ def test_duplicate_of_base_has_no_override_and_forecasts_like_base(client: TestC
     assert _forecast_months(client, headers, copy["id"]) == _forecast_months(
         client, headers, base_id
     )
+
+
+# ---- UAT-003: create a plan from an existing one ("Buy Property + Car") ------
+
+
+def _post_txn(client: TestClient, headers: dict, scenario_id: str, **body) -> dict:
+    resp = client.post(f"/v1/scenarios/{scenario_id}/transactions", headers=headers, json=body)
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+def test_plan_from_existing_adds_the_car_payment_once_and_compare_shows_only_it(
+    client: TestClient,
+) -> None:
+    headers = _auth_headers(client, email="fromexisting@example.com")
+    base_id = next(s["id"] for s in _list_scenarios(client, headers) if s["is_base"])
+    salary = _post_txn(
+        client,
+        headers,
+        base_id,
+        name="Salary",
+        amount_minor=900000,
+        direction="income",
+        recurrence="monthly",
+        start_date="2026-01-25",
+    )
+    _post_txn(
+        client,
+        headers,
+        base_id,
+        name="Rent",
+        amount_minor=300000,
+        direction="expense",
+        recurrence="monthly",
+        start_date="2026-01-01",
+    )
+
+    # "Buy Property": an overridden inherited item (salary raised) plus its own mortgage.
+    buy_property = _make_plan(client, headers, "Buy Property")
+    client.post(
+        f"/v1/scenarios/{buy_property['id']}/overlays",
+        headers=headers,
+        json={"base_transaction_id": salary["id"], "op": "override", "ovr_amount_minor": 1000000},
+    )
+    _post_txn(
+        client,
+        headers,
+        buy_property["id"],
+        name="Mortgage",
+        amount_minor=400000,
+        direction="expense",
+        recurrence="monthly",
+        start_date="2026-01-05",
+    )
+    source_before = _forecast_months(client, headers, buy_property["id"])
+
+    # "Start from an existing scenario" == duplicate with a new name.
+    resp = client.post(
+        f"/v1/scenarios/{buy_property['id']}/duplicate",
+        headers=headers,
+        json={"name": "Buy Property + Car"},
+    )
+    assert resp.status_code == 201
+    car_plan = resp.json()
+    assert car_plan["name"] == "Buy Property + Car"
+    # Starts identical to its source: nothing counted twice, nothing lost.
+    assert _forecast_months(client, headers, car_plan["id"]) == source_before
+
+    # Add the car payment to the copy only.
+    _post_txn(
+        client,
+        headers,
+        car_plan["id"],
+        name="Car payment",
+        amount_minor=150000,
+        direction="expense",
+        recurrence="monthly",
+        start_date="2026-01-10",
+    )
+
+    # The source is untouched.
+    assert _forecast_months(client, headers, buy_property["id"]) == source_before
+    # The copy differs by the car payment exactly once per month.
+    car_months = _forecast_months(client, headers, car_plan["id"])
+    for before, after in zip(source_before, car_months, strict=True):
+        assert after["expense_minor"] - before["expense_minor"] == 150000
+        assert after["income_minor"] == before["income_minor"]
+
+    # And Compare shows the difference, nothing more.
+    compare = client.get(
+        "/v1/forecast/compare",
+        headers=headers,
+        params={"a": buy_property["id"], "b": car_plan["id"], "horizon": 6, "anchor": "2026-01"},
+    )
+    assert compare.status_code == 200
+    deltas = compare.json()["deltas"]
+    assert [d["net_delta_minor"] for d in deltas] == [-150000] * 6
+    assert [d["closing_balance_delta_minor"] for d in deltas] == [-150000 * n for n in range(1, 7)]
+
+
+def test_plan_from_existing_does_not_stay_linked_to_its_source(client: TestClient) -> None:
+    headers = _auth_headers(client, email="nolink@example.com")
+    source = _make_plan(client, headers, "Source")
+    copy = client.post(
+        f"/v1/scenarios/{source['id']}/duplicate", headers=headers, json={"name": "Copy"}
+    ).json()
+    assert "parent" not in str(copy).lower()
+
+    # Deleting the source leaves the copy fully intact.
+    assert client.delete(f"/v1/scenarios/{source['id']}", headers=headers).status_code == 200
+    names = {s["name"] for s in _list_scenarios(client, headers)}
+    assert "Copy" in names and "Source" not in names
