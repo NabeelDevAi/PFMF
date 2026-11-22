@@ -321,6 +321,8 @@ Nothing else about the request changes — same path, same auth, no body.
 
 ---
 
+> **Amounts (all endpoints).** Every money value is an integer in minor units (`*_minor`, e.g. `5591560` is SAR 55,915.60); the API never sends floats or formatted strings for money, and never rounds. Clients must format from the integer (two decimals for SAR) and must not abbreviate amounts except on compact chart axes. The only non-integer number in any response is the percentage `closing_balance_delta_pct`. Enforced by `tests/api/test_money_fields_are_integers.py`.
+
 ## 8. Add / edit / delete a transaction ✅ Verified
 
 **Figma screens:** New expense/income (amount-first entry), Edit transaction (own/Base row — Save changes, Delete), Edit transaction (category picker sheet), Edit transaction (schedule sheet), Edit transaction (Modified/overridden row — Save changes, Revert to Base, Remove from this plan).
