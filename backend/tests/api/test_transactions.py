@@ -348,3 +348,138 @@ def test_dependents_not_found_for_another_users_transaction(client: TestClient) 
 def test_dependents_requires_auth(client: TestClient) -> None:
     resp = client.get("/v1/transactions/00000000-0000-0000-0000-000000000000/dependents")
     assert resp.status_code == 401
+
+
+# ---- UAT-008 Part A: transaction date bounds and date behaviour -------------
+
+
+def _post_txn(client: TestClient, headers: dict, scenario_id: str, **overrides):
+    body = {
+        "name": "Dated",
+        "amount_minor": 1000,
+        "direction": "expense",
+        "recurrence": "monthly",
+        "start_date": "2026-01-01",
+        **overrides,
+    }
+    return client.post(f"/v1/scenarios/{scenario_id}/transactions", headers=headers, json=body)
+
+
+def test_start_date_outside_bounds_is_rejected_on_create(client: TestClient) -> None:
+    headers = _auth_headers(client, email="bounds1@example.com")
+    sid = _base_scenario_id(client, headers)
+
+    for bad in ("1999-12-31", "2101-01-01", "0001-01-01", "9999-12-31"):
+        resp = _post_txn(client, headers, sid, start_date=bad)
+        assert resp.status_code == 422, bad
+        err = resp.json()["error"]
+        assert err["code"] == "validation.invalid"
+        assert err["params"]["field"] == "start_date"
+
+
+def test_dates_exactly_on_the_bounds_are_accepted(client: TestClient) -> None:
+    headers = _auth_headers(client, email="bounds2@example.com")
+    sid = _base_scenario_id(client, headers)
+
+    assert _post_txn(client, headers, sid, start_date="2000-01-01").status_code == 201
+    assert (
+        _post_txn(
+            client, headers, sid, name="Late", start_date="2100-01-01", end_date="2100-12-31"
+        ).status_code
+        == 201
+    )
+
+
+def test_end_date_outside_bounds_is_rejected(client: TestClient) -> None:
+    headers = _auth_headers(client, email="bounds3@example.com")
+    sid = _base_scenario_id(client, headers)
+
+    resp = _post_txn(client, headers, sid, end_date="2101-01-01")
+    assert resp.status_code == 422
+    assert resp.json()["error"]["params"]["field"] == "end_date"
+
+
+def test_patch_dates_outside_bounds_are_rejected(client: TestClient) -> None:
+    headers = _auth_headers(client, email="bounds4@example.com")
+    sid = _base_scenario_id(client, headers)
+    txn = _create_txn(client, headers, sid)
+
+    for field, bad in (("start_date", "1990-05-05"), ("end_date", "2200-01-01")):
+        resp = client.patch(f"/v1/transactions/{txn['id']}", headers=headers, json={field: bad})
+        assert resp.status_code == 422, field
+        assert resp.json()["error"]["params"]["field"] == field
+
+    ok = client.patch(
+        f"/v1/transactions/{txn['id']}", headers=headers, json={"start_date": "2026-02-15"}
+    )
+    assert ok.status_code == 200
+    assert ok.json()["start_date"] == "2026-02-15"
+
+
+def test_overlay_dates_outside_bounds_are_rejected(client: TestClient) -> None:
+    headers = _auth_headers(client, email="bounds5@example.com")
+    base_id = _base_scenario_id(client, headers)
+    txn = _create_txn(client, headers, base_id)
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Plan B"]}).json()["items"][
+        0
+    ]
+
+    resp = client.post(
+        f"/v1/scenarios/{plan['id']}/overlays",
+        headers=headers,
+        json={"base_transaction_id": txn["id"], "op": "override", "ovr_start_date": "1900-01-01"},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["params"]["field"] == "ovr_start_date"
+
+
+def test_one_time_item_only_produces_an_occurrence_on_its_own_date(client: TestClient) -> None:
+    headers = _auth_headers(client, email="dates1@example.com")
+    sid = _base_scenario_id(client, headers)
+    _post_txn(client, headers, sid, name="Bonus", recurrence="one_time", start_date="2026-03-15")
+
+    resp = client.get(
+        f"/v1/scenarios/{sid}/forecast",
+        headers=headers,
+        params={"horizon": 5, "anchor": "2026-01", "include_occurrences": True},
+    )
+    assert resp.status_code == 200
+    bonus = [o for o in resp.json()["occurrences"] if o["name"] == "Bonus"]
+    assert [o["on"] for o in bonus] == ["2026-03-15"]
+
+
+def test_recurring_item_uses_its_start_date_day_in_every_month(client: TestClient) -> None:
+    headers = _auth_headers(client, email="dates2@example.com")
+    sid = _base_scenario_id(client, headers)
+    _post_txn(client, headers, sid, name="Salary", start_date="2026-01-22")
+
+    resp = client.get(
+        f"/v1/scenarios/{sid}/forecast",
+        headers=headers,
+        params={"horizon": 4, "anchor": "2026-01", "include_occurrences": True},
+    )
+    dates = [o["on"] for o in resp.json()["occurrences"] if o["name"] == "Salary"]
+    assert dates == ["2026-01-22", "2026-02-22", "2026-03-22", "2026-04-22"]
+
+
+def test_item_dated_before_the_anchor_month_does_not_affect_the_forecast(
+    client: TestClient,
+) -> None:
+    headers = _auth_headers(client, email="dates3@example.com")
+    sid = _base_scenario_id(client, headers)
+    _post_txn(
+        client,
+        headers,
+        sid,
+        name="Old",
+        recurrence="one_time",
+        start_date="2025-06-10",
+    )
+
+    resp = client.get(
+        f"/v1/scenarios/{sid}/forecast",
+        headers=headers,
+        params={"horizon": 3, "anchor": "2026-01", "include_occurrences": True},
+    )
+    assert resp.status_code == 200
+    assert [o for o in resp.json()["occurrences"] if o["name"] == "Old"] == []

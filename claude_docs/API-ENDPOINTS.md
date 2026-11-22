@@ -341,7 +341,11 @@ The fields on every one of these screens (name, amount, category, schedule, note
   "notes": "Optional context for this transaction."
 }
 ```
-`end_date`, `category_id`, `notes` are all optional (omit or `null`). **Success — `201 Created`:** a `TransactionOut` (§7's shape — `origin` is `own` on the Base Plan, `added` on any other plan; `overlay_id` is always `null` here, since a freshly-created row never has an overlay).
+`end_date`, `category_id`, `notes` are all optional (omit or `null`).
+
+**Dates.** `start_date` and `end_date` (here, on `PATCH /transactions/{id}`, and the `ovr_start_date`/`ovr_end_date` of overlays) are plain `YYYY-MM-DD` calendar dates, no time or timezone. Any date from `2000-01-01` to `2100-12-31` is accepted, past or future; anything outside that range returns `validation.invalid` (422) with `params.field` set to the offending field. A one-time item produces one occurrence, on its `start_date`. A recurring item produces an occurrence on each due date counted from `start_date` (the day of the month always comes from `start_date`, clamped in short months). A date earlier than the forecast's first month has no effect on that forecast. Edits always apply to the whole series.
+
+**Success — `201 Created`:** a `TransactionOut` (§7's shape — `origin` is `own` on the Base Plan, `added` on any other plan; `overlay_id` is always `null` here, since a freshly-created row never has an overlay).
 
 **Errors:** `transaction.amount_not_positive` (422, `amount_minor <= 0`), `transaction.end_before_start` (422), `transaction.one_time_has_end_date` (422, a `one_time` recurrence can't carry an `end_date`), `validation.invalid` (422, e.g. a `category_id` that doesn't exist or isn't visible to this user), `validation.required`, `resource.not_found` (bad `scenario_id`).
 

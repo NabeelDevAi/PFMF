@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
+from app.api.schemas.common import TxnDate
 from app.domain.enums import Direction, Origin, Recurrence
 
 if TYPE_CHECKING:
@@ -110,8 +111,8 @@ class TransactionCreate(BaseModel):
     amount_minor: int
     direction: Direction
     recurrence: Recurrence
-    start_date: date
-    end_date: date | None = None
+    start_date: TxnDate
+    end_date: TxnDate | None = None
     category_id: uuid.UUID | None = None
     notes: str | None = None
 
@@ -141,8 +142,8 @@ class TransactionPatch(BaseModel):
     amount_minor: int | None = None
     direction: Direction | None = None  # accepted only to detect+reject a change; never applied
     recurrence: Recurrence | None = None
-    start_date: date | None = None
-    end_date: date | None = None
+    start_date: TxnDate | None = None
+    end_date: TxnDate | None = None
     unset_end_date: bool = False
     category_id: uuid.UUID | None = None
     unset_category_id: bool = False
