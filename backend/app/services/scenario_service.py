@@ -126,7 +126,16 @@ class ScenarioService:
         new_name = name or f"{source.name[: MAX_NAME_LENGTH - len(suffix)]}{suffix}"
         self._check_name_available(user_id, new_name)
 
-        copy = self.scenarios.create(user_id=user_id, name=new_name)
+        # A derived source's own balance override travels with the copy (it is
+        # part of the plan); Base has none to copy, and a Base duplicate
+        # inherits like any other plan.
+        copy = self.scenarios.create(
+            user_id=user_id,
+            name=new_name,
+            current_balance_override_minor=(
+                None if source.is_base else source.current_balance_override_minor
+            ),
+        )
         if not source.is_base:
             # Base source: copy nothing here at all -- see this module's
             # docstring and M1 case 25.16. Only a derived source has

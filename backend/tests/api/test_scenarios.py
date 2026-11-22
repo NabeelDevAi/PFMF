@@ -651,3 +651,57 @@ def test_a_base_change_flows_into_a_plan_that_has_not_overridden_it(client: Test
     after = _forecast_months(client, headers, plan["id"])
     assert after != before
     assert after == _forecast_months(client, headers, base_id)
+
+
+# ---- UAT-002: duplicate copies the plan's balance override -------------------
+
+
+def test_duplicate_copies_the_balance_override_and_stays_independent(client: TestClient) -> None:
+    headers = _auth_headers(client, email="dupovr@example.com")
+    source = client.post(
+        "/v1/scenarios",
+        headers=headers,
+        json={"name": ["With override"], "current_balance_override_minor": 777000},
+    ).json()["items"][0]
+
+    resp = client.post(
+        f"/v1/scenarios/{source['id']}/duplicate", headers=headers, json={"name": "Copy"}
+    )
+    assert resp.status_code == 201
+    copy = resp.json()
+    assert copy["current_balance_override_minor"] == 777000
+    assert copy["is_base"] is False
+
+    # Changing or clearing one never touches the other.
+    client.patch(
+        f"/v1/scenarios/{copy['id']}", headers=headers, json={"current_balance_override_minor": 1}
+    )
+    client.patch(
+        f"/v1/scenarios/{source['id']}",
+        headers=headers,
+        json={"unset_current_balance_override": True},
+    )
+    by_id = {s["id"]: s for s in _list_scenarios(client, headers)}
+    assert by_id[copy["id"]]["current_balance_override_minor"] == 1
+    assert by_id[source["id"]]["current_balance_override_minor"] is None
+
+
+def test_duplicate_without_an_override_has_none(client: TestClient) -> None:
+    headers = _auth_headers(client, email="dupovr2@example.com")
+    source = _make_plan(client, headers, "Plain")
+    copy = client.post(
+        f"/v1/scenarios/{source['id']}/duplicate", headers=headers, json={"name": "Plain 2"}
+    ).json()
+    assert copy["current_balance_override_minor"] is None
+
+
+def test_duplicate_of_base_has_no_override_and_forecasts_like_base(client: TestClient) -> None:
+    headers = _auth_headers(client, email="dupovr3@example.com")
+    base_id = next(s["id"] for s in _list_scenarios(client, headers) if s["is_base"])
+    copy = client.post(
+        f"/v1/scenarios/{base_id}/duplicate", headers=headers, json={"name": "Base copy"}
+    ).json()
+    assert copy["current_balance_override_minor"] is None
+    assert _forecast_months(client, headers, copy["id"]) == _forecast_months(
+        client, headers, base_id
+    )
