@@ -736,6 +736,44 @@ GET /scenarios/{id}/forecast?horizon=1&anchor=2026-09&include_occurrences=true
 - **Quick filters and "X months / X years"** need no new parameter: send `horizon` = months (6 months = `6`, 1 year = `12`, 3 years = `36`, 5 years = `60`, 2.5 years = `30`; at most `120`).
 - **Existing callers are unaffected:** `horizon` behaves exactly as before (the only addition to the response is the `until` field).
 
+## 15.10 Monthly occurrences — `GET /scenarios/{id}/occurrences?month=YYYY-MM` (UAT-007)
+
+The data behind the Transactions month view: every dated entry of one calendar month for the plan, plus that month's totals. The Transactions list (§7) returns *rules*; this returns *occurrences*.
+
+**Request:** `month` (required, `YYYY-MM`). Any month from 120 months before to 120 months after the balance date's month is allowed, past or future; anything else is `validation.invalid` (422, `params.field = "month"`). A missing `month` is `validation.required`. Another user's or an unknown plan is `resource.not_found` (404).
+
+**Response `200`:**
+
+```json
+{
+  "scenario_id": "…",
+  "month": "2027-01",
+  "currency_code": "SAR",
+  "items": [
+    {
+      "transaction_id": "…",
+      "name": "Kaytus Salary",
+      "direction": "income",
+      "amount_minor": 3850000,
+      "on": "2027-01-22",
+      "origin": "own",
+      "recurrence": "monthly",
+      "start_date": "2026-11-22",
+      "end_date": null,
+      "category_id": null
+    }
+  ],
+  "totals": { "income_minor": 9611250, "expense_minor": 2635811, "net_minor": 6975439 }
+}
+```
+
+- `on` is the occurrence's own due date in that month. **Show it as the date** — never `start_date`, which only describes the series (show "from `start_date` to `end_date`/Present" as the period).
+- `transaction_id` is the same `id` the transactions list (§7) returns for that rule; it is what an edit screen opens. `origin` is `own`, `inherited`, `overridden` or `added`, as in §7.
+- Amounts are positive minor units; the sign comes from `direction` (income `+`, expense `-`).
+- Sorted by `on`, then `name`. Excluded ("removed from this plan") rows never appear. An empty month returns `items: []` and zero totals.
+- **`totals` cover every occurrence in the month** and equal that month's row in `GET /scenarios/{id}/forecast` (`income_minor`, `expense_minor`, `net_minor`). Do not recompute them from a filtered list.
+- There are no actual or posted transactions in Phase 1 (D-02): every item is a planned entry. Compare `on` with today's date on the device if you want to mark items as upcoming.
+
 ## 16. Forecast screen ✅ Verified — zero new backend work
 
 **Figma screens:** Forecast (horizon pills, Balance/Income vs Exp/Net flow tabs, chart, Monthly breakdown table), Month breakdown sheet (tapping a month row).
@@ -800,6 +838,7 @@ Detailed contracts for these land above (or in their own section) once their Fig
 | Overlays | `DELETE /scenarios/{id}/overlays/{ovid}` | ✅ §8 |
 | Forecast & Compare | `GET /scenarios/{id}/forecast?horizon=&anchor=&include_occurrences=` | ✅ §15/§16 |
 | Forecast & Compare | `GET /forecast/compare?a=&b=&horizon=&anchor=` | ✅ §11 |
+| Transactions month view | `GET /scenarios/{id}/occurrences?month=` | ✅ §15.10 |
 | Account data | `DELETE /me/data` | ✅ §14 |
 | Account data | `GET /me/export?format=` | ✅ §14 |
 

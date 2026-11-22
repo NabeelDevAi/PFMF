@@ -537,6 +537,8 @@ GET    /v1/me/export                        JSON export (RFP §4.8)
 
 There is no `/dashboard` endpoint and no `/charts` endpoint. The dashboard is rendered from the `/forecast` payload, and every chart in RFP §4.7 is rendered from the same payload:
 
+> **Amendment (2026-11-22, approved):** the Transactions month view renders from one additional read-only endpoint, `GET /scenarios/{id}/occurrences?month=YYYY-MM`, which lists the dated occurrences of a single calendar month with that month's income, expense and net totals. It uses the same resolver and the same engine `expand` as `/forecast`, adds no financial rule, and its totals equal the matching `/forecast` month row (enforced by tests). There is still no `/dashboard` and no `/charts` endpoint.
+
 | RFP §4.7 chart | Source |
 |---|---|
 | Income vs expense | `months[].income_minor` / `expense_minor` |
