@@ -479,7 +479,7 @@ Action-confirmation shape (§3.2), `category.deleted`. Same ownership rule as pa
 
 ### 10.2 Rename — `PATCH /scenarios/{id}`
 
-`{"name": "Buy a House v2"}`. Verified: renaming never touches any balance — the sheet's caption ("Renaming does not change any of its numbers") is accurate. **Errors:** `scenario.name_taken` (409), `validation.invalid` (422, blank/whitespace name — same rule as plan creation, §6), `resource.not_found`.
+`{"name": "Buy a House v2"}`. Verified: renaming never touches any balance — the sheet's caption ("Renaming does not change any of its numbers") is accurate. **Errors:** `scenario.name_taken` (409), `validation.invalid` (422, blank/whitespace name or a name longer than 60 characters — same rules as plan creation, §6), `resource.not_found`. Renaming to the plan's own current name succeeds (no change). The Base Plan and archived plans can be renamed too; another user's plan returns 404.
 
 ### 10.3 Archive / Unarchive
 
@@ -487,7 +487,7 @@ Action-confirmation shape (§3.2), `category.deleted`. Same ownership rule as pa
 
 ### 10.4 Duplicate — `POST /scenarios/{id}/duplicate`
 
-`{"name": "optional — omit for '<source name> (copy)'"}`. **Verified the sheet's caption word for word** ("The copy keeps live Base inheritance, plus all overrides, removals and plan-only items."): duplicated a plan with one override, one exclude ("removal"), and one added transaction — the copy reproduced all three exactly, while everything untouched kept following Base live (the normal inheritance behavior, unaffected by the copy). **Errors:** `scenario.archived` (409, can't duplicate an archived source — restore it first), `scenario.name_taken`/`validation.invalid` (same name rules as create), `resource.not_found`.
+`{"name": "optional — omit for '<source name> (copy)'"}`. **Verified the sheet's caption word for word** ("The copy keeps live Base inheritance, plus all overrides, removals and plan-only items."): duplicated a plan with one override, one exclude ("removal"), and one added transaction — the copy reproduced all three exactly, while everything untouched kept following Base live (the normal inheritance behavior, unaffected by the copy). **Errors:** `scenario.archived` (409, can't duplicate an archived source — restore it first), `scenario.name_taken`/`validation.invalid` (same name rules as create, including the 60-character cap; the default `"<source> (copy)"` name shortens the source name when needed so it never exceeds 60 characters), `resource.not_found`.
 
 ### 10.5 Delete — `DELETE /scenarios/{id}`
 

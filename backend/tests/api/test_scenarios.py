@@ -480,3 +480,95 @@ def test_no_limit_on_number_of_scenarios(client: TestClient) -> None:
     for i in range(60):
         resp = client.post("/v1/scenarios", headers=headers, json={"name": [f"Plan {i}"]})
         assert resp.status_code == 201
+
+
+# ---- UAT-009: rename rules and the plan-name length cap ----------------------
+
+
+def _make_plan(client: TestClient, headers: dict, name: str) -> dict:
+    return client.post("/v1/scenarios", headers=headers, json={"name": [name]}).json()["items"][0]
+
+
+def test_rename_to_a_name_used_by_another_plan_is_a_conflict(client: TestClient) -> None:
+    headers = _auth_headers(client, email="ren1@example.com")
+    _make_plan(client, headers, "Plan A")
+    plan_b = _make_plan(client, headers, "Plan B")
+
+    resp = client.patch(f"/v1/scenarios/{plan_b['id']}", headers=headers, json={"name": "Plan A"})
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "scenario.name_taken"
+    # Nothing changed.
+    still = next(s for s in _list_scenarios(client, headers) if s["id"] == plan_b["id"])
+    assert still["name"] == "Plan B"
+
+
+def test_rename_to_the_same_name_succeeds(client: TestClient) -> None:
+    headers = _auth_headers(client, email="ren2@example.com")
+    plan = _make_plan(client, headers, "Same")
+
+    resp = client.patch(f"/v1/scenarios/{plan['id']}", headers=headers, json={"name": "Same"})
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "Same"
+
+
+def test_base_plan_can_be_renamed_and_stays_base(client: TestClient) -> None:
+    headers = _auth_headers(client, email="ren3@example.com")
+    base = next(s for s in _list_scenarios(client, headers) if s["is_base"])
+
+    resp = client.patch(f"/v1/scenarios/{base['id']}", headers=headers, json={"name": "My Money"})
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "My Money"
+    assert resp.json()["is_base"] is True
+
+
+def test_archived_plan_can_be_renamed(client: TestClient) -> None:
+    headers = _auth_headers(client, email="ren4@example.com")
+    plan = _make_plan(client, headers, "Old")
+    client.post(f"/v1/scenarios/{plan['id']}/archive", headers=headers)
+
+    resp = client.patch(f"/v1/scenarios/{plan['id']}", headers=headers, json={"name": "Older"})
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "Older"
+
+
+def test_cannot_rename_another_users_plan(client: TestClient) -> None:
+    owner = _auth_headers(client, email="ren5a@example.com")
+    other = _auth_headers(client, email="ren5b@example.com")
+    plan = _make_plan(client, owner, "Private")
+
+    resp = client.patch(f"/v1/scenarios/{plan['id']}", headers=other, json={"name": "Hijacked"})
+    assert resp.status_code == 404
+    assert _make_plan(client, owner, "Another")  # owner's list is intact
+    assert any(s["name"] == "Private" for s in _list_scenarios(client, owner))
+
+
+def test_plan_name_of_60_characters_is_accepted_and_61_is_rejected(client: TestClient) -> None:
+    headers = _auth_headers(client, email="cap1@example.com")
+    ok_name = "a" * 60
+    assert (
+        client.post("/v1/scenarios", headers=headers, json={"name": [ok_name]}).status_code == 201
+    )
+
+    too_long = "b" * 61
+    resp = client.post("/v1/scenarios", headers=headers, json={"name": [too_long]})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["params"]["field"] == "name"
+
+    plan = _make_plan(client, headers, "Short")
+    rename = client.patch(f"/v1/scenarios/{plan['id']}", headers=headers, json={"name": too_long})
+    assert rename.status_code == 422
+    dup = client.post(
+        f"/v1/scenarios/{plan['id']}/duplicate", headers=headers, json={"name": too_long}
+    )
+    assert dup.status_code == 422
+
+
+def test_default_duplicate_name_of_a_long_plan_stays_within_the_cap(client: TestClient) -> None:
+    headers = _auth_headers(client, email="cap2@example.com")
+    plan = _make_plan(client, headers, "c" * 60)
+
+    resp = client.post(f"/v1/scenarios/{plan['id']}/duplicate", headers=headers, json={})
+    assert resp.status_code == 201
+    copy_name = resp.json()["name"]
+    assert len(copy_name) == 60
+    assert copy_name.endswith(" (copy)")

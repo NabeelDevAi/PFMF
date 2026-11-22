@@ -21,6 +21,9 @@ from app.repositories.overlay_repository import OverlayRepository
 from app.repositories.scenario_repository import ScenarioRepository
 from app.repositories.transaction_repository import TransactionRepository
 
+# Same cap the Flutter app enforces on plan names (UAT-009).
+MAX_NAME_LENGTH = 60
+
 
 class ScenarioService:
     def __init__(self, db: Session) -> None:
@@ -117,7 +120,10 @@ class ScenarioService:
             raise APIError("scenario.archived")
         if name is not None:
             self._validate_name(name)
-        new_name = name or f"{source.name} (copy)"
+        # A default name must also respect the cap: shorten a long source name
+        # so "<source> (copy)" never exceeds MAX_NAME_LENGTH.
+        suffix = " (copy)"
+        new_name = name or f"{source.name[: MAX_NAME_LENGTH - len(suffix)]}{suffix}"
         self._check_name_available(user_id, new_name)
 
         copy = self.scenarios.create(user_id=user_id, name=new_name)
@@ -144,7 +150,7 @@ class ScenarioService:
         return copy
 
     def _validate_name(self, name: str) -> None:
-        if not name.strip():
+        if not name.strip() or len(name) > MAX_NAME_LENGTH:
             raise APIError("validation.invalid", {"field": "name"})
 
     def _check_name_available(self, user_id: uuid.UUID, name: str) -> None:
