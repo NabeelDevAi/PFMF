@@ -572,3 +572,82 @@ def test_default_duplicate_name_of_a_long_plan_stays_within_the_cap(client: Test
     copy_name = resp.json()["name"]
     assert len(copy_name) == 60
     assert copy_name.endswith(" (copy)")
+
+
+# ---- UAT-010: what "switching plans" means for the numbers -------------------
+
+
+def _forecast_months(client: TestClient, headers: dict, scenario_id: str) -> list[dict]:
+    resp = client.get(
+        f"/v1/scenarios/{scenario_id}/forecast",
+        headers=headers,
+        params={"horizon": 6, "anchor": "2026-01"},
+    )
+    assert resp.status_code == 200
+    return resp.json()["months"]
+
+
+def test_plan_without_changes_forecasts_like_base_and_a_changed_plan_differs(
+    client: TestClient,
+) -> None:
+    """Pins the intended behaviour the client asked to have explained: every
+    plan is Base plus its own changes (D-01/D-13), so an untouched plan
+    shows exactly Base's numbers, and a plan with a change of its own
+    shows different ones."""
+    headers = _auth_headers(client, email="switch1@example.com")
+    base_id = next(s["id"] for s in _list_scenarios(client, headers) if s["is_base"])
+    client.post(
+        f"/v1/scenarios/{base_id}/transactions",
+        headers=headers,
+        json={
+            "name": "Salary",
+            "amount_minor": 500000,
+            "direction": "income",
+            "recurrence": "monthly",
+            "start_date": "2026-01-25",
+        },
+    )
+    untouched = _make_plan(client, headers, "Untouched")
+    changed = _make_plan(client, headers, "Changed")
+    client.post(
+        f"/v1/scenarios/{changed['id']}/transactions",
+        headers=headers,
+        json={
+            "name": "Car payment",
+            "amount_minor": 150000,
+            "direction": "expense",
+            "recurrence": "monthly",
+            "start_date": "2026-01-10",
+        },
+    )
+
+    base_months = _forecast_months(client, headers, base_id)
+    assert _forecast_months(client, headers, untouched["id"]) == base_months
+
+    changed_months = _forecast_months(client, headers, changed["id"])
+    assert changed_months != base_months
+    # Each month differs by exactly the car payment, counted once.
+    for base_row, changed_row in zip(base_months, changed_months, strict=True):
+        assert changed_row["expense_minor"] - base_row["expense_minor"] == 150000
+
+
+def test_a_base_change_flows_into_a_plan_that_has_not_overridden_it(client: TestClient) -> None:
+    headers = _auth_headers(client, email="switch2@example.com")
+    base_id = next(s["id"] for s in _list_scenarios(client, headers) if s["is_base"])
+    plan = _make_plan(client, headers, "Follower")
+    before = _forecast_months(client, headers, plan["id"])
+
+    client.post(
+        f"/v1/scenarios/{base_id}/transactions",
+        headers=headers,
+        json={
+            "name": "Rent",
+            "amount_minor": 300000,
+            "direction": "expense",
+            "recurrence": "monthly",
+            "start_date": "2026-01-01",
+        },
+    )
+    after = _forecast_months(client, headers, plan["id"])
+    assert after != before
+    assert after == _forecast_months(client, headers, base_id)
