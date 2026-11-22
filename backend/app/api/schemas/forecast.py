@@ -61,6 +61,9 @@ class ForecastOut(BaseModel):
     anchor_month: str
     balance_as_of: date
     horizon_months: int
+    # Last day the forecast covers: the exact `until` that was requested, or
+    # the last day of the final month when `horizon` was used (UAT-005).
+    until: date
     currency_code: str
     current_balance_minor: int
     current_month: str  # where "today" sits in `months` (architecture §7.5)
@@ -107,6 +110,11 @@ class ForecastOut(BaseModel):
             anchor_month=str(ledger.anchor_month),
             balance_as_of=result.balance_as_of,
             horizon_months=ledger.horizon_months,
+            until=(
+                ledger.until
+                if ledger.until is not None
+                else ledger.anchor_month.add(ledger.horizon_months - 1).last_day()
+            ),
             currency_code=result.currency_code,
             current_balance_minor=ledger.current_balance_minor,
             current_month=str(result.current_month),

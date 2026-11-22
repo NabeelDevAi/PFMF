@@ -535,7 +535,7 @@ Note: this section only verifies the specific fields above for this exact purpos
 
 Shown next to each non-Base plan before you've even picked which two to compare (Base's row shows "Your real numbers" instead — nothing to compute there). **This is not a comparison at all** — it's that plan's own standalone average monthly cash flow, independent of Base: call `GET /scenarios/{id}/forecast?horizon=` (whatever the currently-selected horizon pill is) for each plan shown, and divide `totals.net_minor / horizon_months`. Verified live: sign and magnitude behave exactly as expected for a plan whose own income comfortably exceeds its own expenses.
 
-### 11.2 Running the comparison — `GET /forecast/compare?a=&b=&horizon=&anchor=`
+### 11.2 Running the comparison — `GET /forecast/compare?a=&b=&horizon=&anchor=` (or `until=` instead of `horizon`, see §15.9)
 
 - `a`, `b` — the two plan ids ("Pick exactly two plans"). Order doesn't matter for validation, but the response's `a`/`b` keys mirror whichever you passed — keep Plan A/Plan B on the client side consistent with which id went where.
 - `horizon` — the four pills map directly: 1Y→`12`, 3Y→`36`, 5Y→`60`, 10Y→`120`.
@@ -725,6 +725,17 @@ GET /scenarios/{id}/forecast?horizon=1&anchor=2026-09&include_occurrences=true
 
 ---
 
+## 15.9 Forecast until an exact date — `until` (UAT-005)
+
+`GET /scenarios/{id}/forecast` and `GET /forecast/compare` accept **either** `horizon` (whole months, 1 to 120, as before) **or** `until=YYYY-MM-DD` — exactly one of them. Sending both or neither returns `validation.invalid` (422).
+
+- **What `until` does.** The forecast runs from the anchor month through the month that contains `until`, and the last month is cut off on that exact day: only occurrences on or before `until` count, and that month's `closing_balance_minor` is the balance on `until`. Every earlier month is identical to what `horizon` returns. An `until` on the last day of a month gives exactly the same result as the matching `horizon`.
+- **Limits.** `until` must be on or after the first day of the anchor month and no later than the last day of the 120th month from it (10 years). Otherwise `forecast.invalid_until` (422). A malformed date is `validation.invalid`.
+- **Response.** `ForecastOut` has a new field `until` (date): the exact end date that was requested, or, when `horizon` was used, the last day of the final month. `horizon_months` is always returned and is the number of rows in `months`.
+- **Compare.** Both plans use the identical window, so `deltas`, `drivers` and both `totals` cover the same dates.
+- **Quick filters and "X months / X years"** need no new parameter: send `horizon` = months (6 months = `6`, 1 year = `12`, 3 years = `36`, 5 years = `60`, 2.5 years = `30`; at most `120`).
+- **Existing callers are unaffected:** `horizon` behaves exactly as before (the only addition to the response is the `until` field).
+
 ## 16. Forecast screen ✅ Verified — zero new backend work
 
 **Figma screens:** Forecast (horizon pills, Balance/Income vs Exp/Net flow tabs, chart, Monthly breakdown table), Month breakdown sheet (tapping a month row).
@@ -827,6 +838,7 @@ Every code below always comes with a `message_en`/`message_ar` pair (§3.1) — 
 | `category.in_use` | 409 | Deleting a category still referenced by a transaction or override |
 | `compare.same_scenario` | 422 | Plan A and Plan B are the same plan |
 | `forecast.invalid_horizon` | 422 | Horizon is outside the allowed range |
+| `forecast.invalid_until` | 422 | `until` is before the forecast's first month, or later than 120 months after it |
 | `resource.not_found` | 404 | Also returned for another user's resource — never distinguishable from "doesn't exist" |
 | `rate_limited` | 429 | Too many attempts on a rate-limited route (login/register: 5/min per IP) |
 | `internal` | 500 | Unhandled server error — report the `request_id` |

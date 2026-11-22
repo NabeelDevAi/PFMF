@@ -18,6 +18,8 @@ def compare(a: Ledger, b: Ledger) -> Comparison:
         raise ValueError("cannot compare ledgers with different anchor months")
     if a.horizon_months != b.horizon_months:
         raise ValueError("cannot compare ledgers with different horizons")
+    if a.until != b.until:
+        raise ValueError("cannot compare ledgers with different end dates")
 
     deltas = tuple(
         MonthDelta(

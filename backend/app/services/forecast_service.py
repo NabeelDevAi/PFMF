@@ -50,14 +50,24 @@ class ForecastService:
         user_id: uuid.UUID,
         scenario_id: uuid.UUID,
         *,
-        horizon_months: int,
+        horizon_months: int | None = None,
+        until: date | None = None,
         anchor_month: YearMonth | None = None,
     ) -> ForecastResult:
+        """Exactly one of `horizon_months` (whole months) or `until` (an
+        exact end date, UAT-005) must be given. With `until` the forecast
+        runs from the anchor month through the month containing it and the
+        final month is cut off on `until` itself."""
+        if (horizon_months is None) == (until is None):
+            raise APIError(
+                "validation.invalid",
+                {"field": "horizon" if until is None else "until"},
+            )
         # architecture §11.4: the four client-facing presets (12/36/60/120)
         # are no longer the whole allowed set -- the dashboard requests
         # months_elapsed + 12, which usually isn't one of them. Range only.
         max_horizon = get_settings().max_horizon_months
-        if not 1 <= horizon_months <= max_horizon:
+        if horizon_months is not None and not 1 <= horizon_months <= max_horizon:
             raise APIError("forecast.invalid_horizon")
 
         scenario = self._get_scenario(user_id, scenario_id)
@@ -90,12 +100,23 @@ class ForecastService:
         current_month = YearMonth.from_date(date.today())
         months_elapsed = resolved_anchor.months_until(current_month)
 
+        if until is not None:
+            # The end date must not precede the forecast start, and the
+            # month count it implies must stay inside the engine limit.
+            if until < resolved_anchor.first_day():
+                raise APIError("forecast.invalid_until")
+            horizon_months = resolved_anchor.months_until(YearMonth.from_date(until)) + 1
+            if horizon_months > max_horizon:
+                raise APIError("forecast.invalid_until")
+        assert horizon_months is not None
+
         resolved = self.resolver.resolve(user_id, scenario)
         ledger = engine_forecast(
             current_balance_minor=current_balance_minor,
             anchor_month=resolved_anchor,
             horizon_months=horizon_months,
             transactions=resolved,
+            until=until,
         )
         return ForecastResult(
             scenario_id=scenario.id,

@@ -293,9 +293,9 @@ def test_compare_never_includes_occurrences(client: TestClient) -> None:
     would do, since there's no query param for it on this route."""
     headers = _auth_headers(client, email="cmpoccur@example.com")
     base_id = _base_id(client, headers)
-    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Plan B"]}).json()[
-        "items"
-    ][0]
+    plan = client.post("/v1/scenarios", headers=headers, json={"name": ["Plan B"]}).json()["items"][
+        0
+    ]
 
     resp = client.get(
         "/v1/forecast/compare",

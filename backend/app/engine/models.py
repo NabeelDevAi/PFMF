@@ -68,6 +68,9 @@ class Ledger:
     current_balance_minor: Minor
     months: tuple[MonthRow, ...]
     occurrences: tuple[Occurrence, ...]
+    # Optional inclusive end date inside the final month (UAT-005). None
+    # means the whole final month is covered.
+    until: date | None = None
 
 
 @dataclass(frozen=True)

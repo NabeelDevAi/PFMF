@@ -6,6 +6,7 @@ all render from. No /dashboard, no /charts (architecture §9.1).
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -39,14 +40,21 @@ def _parse_anchor(anchor: str | None) -> YearMonth | None:
 @router.get("/scenarios/{scenario_id}/forecast", response_model=ForecastOut)
 def get_forecast(
     scenario_id: uuid.UUID,
-    horizon: int = Query(...),
+    horizon: int | None = Query(None),
+    until: date | None = Query(None),
     anchor: str | None = Query(None),
     include_occurrences: bool = Query(False),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ForecastOut:
+    """Give exactly one of `horizon` (whole months) or `until` (an exact end
+    date, `YYYY-MM-DD`). With `until` the final month is cut off on that day."""
     result = ForecastService(db).forecast(
-        user.id, scenario_id, horizon_months=horizon, anchor_month=_parse_anchor(anchor)
+        user.id,
+        scenario_id,
+        horizon_months=horizon,
+        until=until,
+        anchor_month=_parse_anchor(anchor),
     )
     return ForecastOut.from_result(result, include_occurrences=include_occurrences)
 
@@ -55,12 +63,13 @@ def get_forecast(
 def compare_forecasts(
     a: uuid.UUID = Query(...),
     b: uuid.UUID = Query(...),
-    horizon: int = Query(...),
+    horizon: int | None = Query(None),
+    until: date | None = Query(None),
     anchor: str | None = Query(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> CompareOut:
     result = CompareService(db).compare(
-        user.id, a, b, horizon_months=horizon, anchor_month=_parse_anchor(anchor)
+        user.id, a, b, horizon_months=horizon, until=until, anchor_month=_parse_anchor(anchor)
     )
     return CompareOut.from_result(result)

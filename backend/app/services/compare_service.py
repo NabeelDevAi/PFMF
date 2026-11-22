@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import date
 
 from sqlalchemy.orm import Session
 
@@ -37,7 +38,8 @@ class CompareService:
         scenario_a_id: uuid.UUID,
         scenario_b_id: uuid.UUID,
         *,
-        horizon_months: int,
+        horizon_months: int | None = None,
+        until: date | None = None,
         anchor_month: YearMonth | None = None,
     ) -> CompareResult:
         if scenario_a_id == scenario_b_id:
@@ -53,10 +55,18 @@ class CompareService:
         # month boundary could hand the engine two ledgers it isn't
         # allowed to compare (it asserts on this itself).
         a = self.forecasts.forecast(
-            user_id, scenario_a_id, horizon_months=horizon_months, anchor_month=anchor_month
+            user_id,
+            scenario_a_id,
+            horizon_months=horizon_months,
+            until=until,
+            anchor_month=anchor_month,
         )
         b = self.forecasts.forecast(
-            user_id, scenario_b_id, horizon_months=horizon_months, anchor_month=anchor_month
+            user_id,
+            scenario_b_id,
+            horizon_months=horizon_months,
+            until=until,
+            anchor_month=anchor_month,
         )
         comparison = engine_compare(a.ledger, b.ledger)
         return CompareResult(a=a, b=b, comparison=comparison)

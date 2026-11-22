@@ -69,6 +69,7 @@ ERROR_STATUS: dict[str, int] = {
     "category.in_use": 409,  # addition: can't delete a user category still referenced
     "compare.same_scenario": 422,
     "forecast.invalid_horizon": 422,
+    "forecast.invalid_until": 422,
     "resource.not_found": 404,
     "rate_limited": 429,
     "internal": 500,
@@ -184,6 +185,11 @@ ERROR_MESSAGES: dict[str, tuple[str, str]] = {
     "forecast.invalid_horizon": (
         "The selected time period isn't valid.",
         "الفترة الزمنية المحددة غير صالحة.",
+    ),
+    "forecast.invalid_until": (
+        "The forecast end date isn't valid. Choose a date after your balance date "
+        "and within the next 10 years.",
+        "تاريخ انتهاء التوقعات غير صالح. اختر تاريخًا بعد تاريخ رصيدك وخلال السنوات العشر القادمة.",
     ),
     "resource.not_found": (
         "We couldn't find what you're looking for.",

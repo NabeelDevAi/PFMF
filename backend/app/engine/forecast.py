@@ -9,7 +9,7 @@ cases be run against it directly.
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
 
 from .assumptions import Assumptions, apply_assumptions
 from .expand import expand
@@ -24,10 +24,18 @@ def forecast(
     horizon_months: int,
     transactions: list[ResolvedTransaction],
     assumptions: Assumptions | None = None,
+    until: date | None = None,
 ) -> Ledger:
+    """`until`, when given, ends the forecast on that exact day: occurrences
+    after it are not produced, so the final month is a partial month and its
+    closing balance is the balance on `until`. The caller is responsible for
+    choosing `horizon_months` so the final month contains `until` (the
+    service derives it); `until=None` covers the whole final month."""
     assumptions = assumptions if assumptions is not None else Assumptions.none()
     window_start = anchor_month.first_day()
     window_end = anchor_month.add(horizon_months).first_day() - timedelta(days=1)
+    if until is not None:
+        window_end = min(window_end, until)
 
     # 1. EXPAND
     occurrences: list[Occurrence] = []
@@ -67,4 +75,5 @@ def forecast(
         current_balance_minor=current_balance_minor,
         months=tuple(rows),
         occurrences=tuple(occurrences),
+        until=until,
     )

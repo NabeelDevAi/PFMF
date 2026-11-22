@@ -7,7 +7,7 @@ app/engine/ builds on these types and nothing else.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from enum import StrEnum
 
 # Money is ALWAYS integer minor units (halalas/cents). Never float, never
@@ -88,6 +88,9 @@ class YearMonth:
 
     def first_day(self) -> date:
         return date(self.year, self.month, 1)
+
+    def last_day(self) -> date:
+        return self.add(1).first_day() - timedelta(days=1)
 
     def __str__(self) -> str:
         return f"{self.year:04d}-{self.month:02d}"
