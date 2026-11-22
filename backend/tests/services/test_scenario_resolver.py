@@ -16,7 +16,7 @@ from hypothesis import strategies as st
 from sqlalchemy.orm import Session
 
 from app.db.models.scenario_overlay import ScenarioOverlay
-from app.domain.enums import Direction, OverlayOp, Recurrence
+from app.domain.enums import Direction, OverlayOp, Recurrence, RecurrenceUnit
 from app.engine.types import Direction as EngineDirection
 from app.engine.types import Origin as EngineOrigin
 from app.repositories.scenario_repository import ScenarioRepository
@@ -229,7 +229,7 @@ def _domain_transaction_spec(draw: st.DrawFn) -> dict:
         if recurrence is Recurrence.ONE_TIME
         else draw(st.none() | st.dates(min_value=start_date, max_value=date(2033, 12, 31)))
     )
-    return {
+    spec = {
         "name": "txn",
         "amount_minor": draw(st.integers(min_value=1, max_value=5_000_000)),
         "direction": draw(st.sampled_from(list(Direction))),
@@ -239,6 +239,10 @@ def _domain_transaction_spec(draw: st.DrawFn) -> dict:
         "category_id": None,
         "notes": None,
     }
+    if recurrence is Recurrence.CUSTOM:
+        spec["recurrence_interval"] = draw(st.integers(min_value=1, max_value=60))
+        spec["recurrence_unit"] = draw(st.sampled_from(list(RecurrenceUnit)))
+    return spec
 
 
 @st.composite

@@ -5,7 +5,7 @@ from datetime import date
 
 from pydantic import BaseModel
 
-from app.domain.enums import Direction, Origin, Recurrence
+from app.domain.enums import Direction, Origin, Recurrence, RecurrenceUnit
 from app.services.occurrence_service import MonthOccurrences
 
 
@@ -24,6 +24,9 @@ class MonthOccurrenceOut(BaseModel):
     on: date
     origin: Origin
     recurrence: Recurrence
+    # Only for recurrence == "custom": "every <recurrence_interval> <recurrence_unit>".
+    recurrence_interval: int | None
+    recurrence_unit: RecurrenceUnit | None
     start_date: date
     end_date: date | None
     category_id: uuid.UUID | None
@@ -53,6 +56,12 @@ class MonthOccurrencesOut(BaseModel):
                 on=i.occurrence.on,
                 origin=Origin(i.transaction.origin.value),
                 recurrence=Recurrence(i.transaction.recurrence.value),
+                recurrence_interval=i.transaction.recurrence_interval,
+                recurrence_unit=(
+                    RecurrenceUnit(i.transaction.recurrence_unit.value)
+                    if i.transaction.recurrence_unit
+                    else None
+                ),
                 start_date=i.transaction.start_date,
                 end_date=i.transaction.end_date,
                 category_id=(

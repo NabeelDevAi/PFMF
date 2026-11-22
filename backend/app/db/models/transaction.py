@@ -3,14 +3,14 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Text
+from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Integer, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from app.db.base import Base
 from app.db.types import pg_enum
-from app.domain.enums import Direction, Recurrence
+from app.domain.enums import Direction, Recurrence, RecurrenceUnit
 
 
 class Transaction(Base):
@@ -30,6 +30,21 @@ class Transaction(Base):
         CheckConstraint("amount_minor > 0", name="amount_positive"),
         CheckConstraint("end_date IS NULL OR end_date >= start_date", name="valid_range"),
         CheckConstraint("recurrence <> 'one_time' OR end_date IS NULL", name="one_time_has_no_end"),
+        # A custom recurrence ("every N <unit>") carries both fields; every
+        # other recurrence carries neither (D-08 amended 2026-11-22).
+        CheckConstraint(
+            "recurrence <> 'custom' OR "
+            "(recurrence_interval IS NOT NULL AND recurrence_unit IS NOT NULL)",
+            name="custom_has_interval_and_unit",
+        ),
+        CheckConstraint(
+            "recurrence = 'custom' OR (recurrence_interval IS NULL AND recurrence_unit IS NULL)",
+            name="only_custom_has_interval_and_unit",
+        ),
+        CheckConstraint(
+            "recurrence_interval IS NULL OR recurrence_interval BETWEEN 1 AND 999",
+            name="recurrence_interval_range",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -56,6 +71,10 @@ class Transaction(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     recurrence: Mapped[Recurrence] = mapped_column(
         pg_enum(Recurrence, "recurrence"), nullable=False
+    )
+    recurrence_interval: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    recurrence_unit: Mapped[RecurrenceUnit | None] = mapped_column(
+        pg_enum(RecurrenceUnit, "recurrence_unit"), nullable=True
     )
     start_date: Mapped[date] = mapped_column(nullable=False)
     end_date: Mapped[date | None] = mapped_column(nullable=True)  # NULL = open-ended

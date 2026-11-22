@@ -16,11 +16,12 @@ from sqlalchemy.orm import Session
 from app.core.errors import APIError
 from app.db.models.scenario import Scenario
 from app.db.models.transaction import Transaction
-from app.domain.enums import Direction, Recurrence
+from app.domain.enums import Direction, Recurrence, RecurrenceUnit
 from app.repositories.category_repository import CategoryRepository
 from app.repositories.overlay_repository import OverlayRepository
 from app.repositories.scenario_repository import ScenarioRepository
 from app.repositories.transaction_repository import TransactionRepository
+from app.services.recurrence_rules import check_dates, check_recurrence
 
 
 class TransactionService:
@@ -60,11 +61,16 @@ class TransactionService:
         end_date: date | None = None,
         category_id: uuid.UUID | None = None,
         notes: str | None = None,
+        recurrence_interval: int | None = None,
+        recurrence_unit: RecurrenceUnit | None = None,
     ) -> Transaction:
         self._get_scenario(user_id, scenario_id)
         self._check_amount(amount_minor)
         self._check_dates(recurrence, start_date, end_date)
         self._check_category(user_id, category_id)
+        recurrence_interval, recurrence_unit = check_recurrence(
+            recurrence, recurrence_interval, recurrence_unit
+        )
 
         return self.transactions.create(
             user_id=user_id,
@@ -73,6 +79,8 @@ class TransactionService:
             amount_minor=amount_minor,
             direction=direction,
             recurrence=recurrence,
+            recurrence_interval=recurrence_interval,
+            recurrence_unit=recurrence_unit,
             start_date=start_date,
             end_date=end_date,
             category_id=category_id,
@@ -88,6 +96,8 @@ class TransactionService:
         amount_minor: int | None = None,
         direction: Direction | None = None,
         recurrence: Recurrence | None = None,
+        recurrence_interval: int | None = None,
+        recurrence_unit: RecurrenceUnit | None = None,
         start_date: date | None = None,
         end_date: date | None = None,
         _unset_end_date: bool = False,
@@ -103,6 +113,25 @@ class TransactionService:
 
         new_amount = amount_minor if amount_minor is not None else txn.amount_minor
         new_recurrence = recurrence if recurrence is not None else txn.recurrence
+        # Interval and unit belong to the recurrence: when it stays `custom`
+        # an omitted field keeps its current value; switching to custom needs
+        # both in the request; switching away from custom clears them (and
+        # sending them with a named rule is an error).
+        if new_recurrence is Recurrence.CUSTOM:
+            was_custom = txn.recurrence is Recurrence.CUSTOM
+            new_interval = (
+                recurrence_interval
+                if recurrence_interval is not None
+                else (txn.recurrence_interval if was_custom else None)
+            )
+            new_unit = (
+                recurrence_unit
+                if recurrence_unit is not None
+                else (txn.recurrence_unit if was_custom else None)
+            )
+        else:
+            new_interval, new_unit = recurrence_interval, recurrence_unit
+        new_interval, new_unit = check_recurrence(new_recurrence, new_interval, new_unit)
         new_start = start_date if start_date is not None else txn.start_date
         new_end = txn.end_date if not _unset_end_date else None
         new_end = end_date if end_date is not None else new_end
@@ -115,6 +144,8 @@ class TransactionService:
         txn.name = name if name is not None else txn.name
         txn.amount_minor = new_amount
         txn.recurrence = new_recurrence
+        txn.recurrence_interval = new_interval
+        txn.recurrence_unit = new_unit
         txn.start_date = new_start
         txn.end_date = new_end
         if _unset_category_id:
@@ -144,10 +175,7 @@ class TransactionService:
             raise APIError("transaction.amount_not_positive", {"field": "amount_minor"})
 
     def _check_dates(self, recurrence: Recurrence, start_date: date, end_date: date | None) -> None:
-        if end_date is not None and end_date < start_date:
-            raise APIError("transaction.end_before_start", {"field": "end_date"})
-        if recurrence is Recurrence.ONE_TIME and end_date is not None:
-            raise APIError("transaction.one_time_has_end_date", {"field": "end_date"})
+        check_dates(recurrence, start_date, end_date)
 
     def _check_category(self, user_id: uuid.UUID, category_id: uuid.UUID | None) -> None:
         if (

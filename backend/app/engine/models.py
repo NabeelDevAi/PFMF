@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from .types import Direction, DriverChange, Minor, Origin, Recurrence, YearMonth
+from .types import Direction, DriverChange, Minor, Origin, Recurrence, RecurrenceUnit, YearMonth
 
 
 @dataclass(frozen=True)
@@ -29,6 +29,9 @@ class ResolvedTransaction:
     recurrence: Recurrence
     start_date: date
     end_date: date | None  # None = open-ended
+    # Only for recurrence == CUSTOM: "every <interval> <unit>". None otherwise.
+    recurrence_interval: int | None = None
+    recurrence_unit: RecurrenceUnit | None = None
 
 
 @dataclass(frozen=True)

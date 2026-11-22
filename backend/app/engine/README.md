@@ -8,4 +8,6 @@ Pure. No imports from `app.api`, `app.db`, `app.services`, `app.repositories`, `
 
 **The one rule that matters most:** in `expand.py`'s month-based expansion, the anchor day always comes from the transaction's original `start_date` -- never from a previously generated occurrence. That's the entire clamp-vs-drift bug, in one sentence.
 
+**Custom recurrence** (D-08 amended 2026-11-22): `expand.cadence()` reduces `Recurrence.CUSTOM` (`recurrence_interval` + `recurrence_unit`) to a day step (days, weeks) or a month step (months, years) and reuses the two expansions above, so the clamp rule applies to it unchanged. Equivalence with the named rules is property-tested in `tests/engine/test_custom_recurrence.py`.
+
 **Not built here yet:** `mypy --strict` / `import-linter` enforcement of the purity rule above is deferred to the hardening milestone (M6) -- for now it's held by review discipline. See `claude_docs/backend-plan/12-open-questions-and-future-hardening.md`.

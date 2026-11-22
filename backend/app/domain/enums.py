@@ -17,7 +17,11 @@ class Direction(StrEnum):
 
 
 class Recurrence(StrEnum):
-    """The frozen recurrence set (D-08)."""
+    """The recurrence set (D-08, amended 2026-11-22). The seven named rules
+    are fixed; `custom` is the one bounded extension: "every N days / weeks
+    / months / years", carried by `recurrence_interval` + `recurrence_unit`
+    (both required for `custom`, both absent for every other value). No
+    cron-style or free-form rules."""
 
     ONE_TIME = "one_time"
     WEEKLY = "weekly"
@@ -26,6 +30,21 @@ class Recurrence(StrEnum):
     QUARTERLY = "quarterly"
     SEMIANNUAL = "semiannual"
     ANNUAL = "annual"
+    CUSTOM = "custom"
+
+
+class RecurrenceUnit(StrEnum):
+    """The unit of a `custom` recurrence's interval."""
+
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"
+    YEAR = "year"
+
+
+# Bounds for a custom recurrence's interval ("every N ...").
+MIN_RECURRENCE_INTERVAL = 1
+MAX_RECURRENCE_INTERVAL = 999
 
 
 class OverlayOp(StrEnum):

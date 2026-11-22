@@ -18,11 +18,12 @@ from sqlalchemy.orm import Session
 from app.core.errors import APIError
 from app.db.models.scenario_overlay import ScenarioOverlay
 from app.db.models.transaction import Transaction
-from app.domain.enums import OverlayOp, Recurrence
+from app.domain.enums import OverlayOp, Recurrence, RecurrenceUnit
 from app.repositories.category_repository import CategoryRepository
 from app.repositories.overlay_repository import OverlayRepository
 from app.repositories.scenario_repository import ScenarioRepository
 from app.repositories.transaction_repository import TransactionRepository
+from app.services.recurrence_rules import check_recurrence
 
 
 class OverlayService:
@@ -44,6 +45,8 @@ class OverlayService:
         ovr_amount_minor: int | None = None,
         ovr_category_id: uuid.UUID | None = None,
         ovr_recurrence: Recurrence | None = None,
+        ovr_recurrence_interval: int | None = None,
+        ovr_recurrence_unit: RecurrenceUnit | None = None,
         ovr_start_date: date | None = None,
         ovr_end_date: date | None = None,
         unset_end_date: bool = False,
@@ -53,6 +56,20 @@ class OverlayService:
 
         if self.overlays.get_by_target(scenario_id, base_transaction_id) is not None:
             raise APIError("overlay.already_exists")
+
+        if ovr_recurrence is None:
+            if ovr_recurrence_interval is not None:
+                raise APIError("validation.invalid", {"field": "ovr_recurrence_interval"})
+            if ovr_recurrence_unit is not None:
+                raise APIError("validation.invalid", {"field": "ovr_recurrence_unit"})
+        else:
+            ovr_recurrence_interval, ovr_recurrence_unit = check_recurrence(
+                ovr_recurrence,
+                ovr_recurrence_interval,
+                ovr_recurrence_unit,
+                interval_field="ovr_recurrence_interval",
+                unit_field="ovr_recurrence_unit",
+            )
 
         if op is OverlayOp.OVERRIDE:
             merged = _merge(
@@ -75,6 +92,8 @@ class OverlayService:
             ovr_amount_minor=ovr_amount_minor,
             ovr_category_id=ovr_category_id,
             ovr_recurrence=ovr_recurrence,
+            ovr_recurrence_interval=ovr_recurrence_interval,
+            ovr_recurrence_unit=ovr_recurrence_unit,
             ovr_start_date=ovr_start_date,
             ovr_end_date=ovr_end_date,
             unset_end_date=unset_end_date,
@@ -91,6 +110,8 @@ class OverlayService:
         ovr_category_id: uuid.UUID | None = None,
         _unset_category_id: bool = False,
         ovr_recurrence: Recurrence | None = None,
+        ovr_recurrence_interval: int | None = None,
+        ovr_recurrence_unit: RecurrenceUnit | None = None,
         ovr_start_date: date | None = None,
         ovr_end_date: date | None = None,
         unset_end_date: bool | None = None,
@@ -109,8 +130,47 @@ class OverlayService:
         elif ovr_category_id is not None:
             self._check_category(user_id, ovr_category_id)
             overlay.ovr_category_id = ovr_category_id
-        if ovr_recurrence is not None:
-            overlay.ovr_recurrence = ovr_recurrence
+        if ovr_recurrence is not None or (
+            ovr_recurrence_interval is not None or ovr_recurrence_unit is not None
+        ):
+            # The interval and unit belong to the overridden recurrence. Keep
+            # the stored ones only while it stays custom; otherwise they must
+            # come from this request.
+            new_recurrence = (
+                ovr_recurrence if ovr_recurrence is not None else overlay.ovr_recurrence
+            )
+            if new_recurrence is None:
+                # An interval or unit with no overridden recurrence to attach to.
+                field = (
+                    "ovr_recurrence_interval"
+                    if ovr_recurrence_interval is not None
+                    else "ovr_recurrence_unit"
+                )
+                raise APIError("validation.invalid", {"field": field})
+            if new_recurrence is Recurrence.CUSTOM:
+                was_custom = overlay.ovr_recurrence is Recurrence.CUSTOM
+                interval = (
+                    ovr_recurrence_interval
+                    if ovr_recurrence_interval is not None
+                    else (overlay.ovr_recurrence_interval if was_custom else None)
+                )
+                unit = (
+                    ovr_recurrence_unit
+                    if ovr_recurrence_unit is not None
+                    else (overlay.ovr_recurrence_unit if was_custom else None)
+                )
+            else:
+                interval, unit = ovr_recurrence_interval, ovr_recurrence_unit
+            interval, unit = check_recurrence(
+                new_recurrence,
+                interval,
+                unit,
+                interval_field="ovr_recurrence_interval",
+                unit_field="ovr_recurrence_unit",
+            )
+            overlay.ovr_recurrence = new_recurrence
+            overlay.ovr_recurrence_interval = interval
+            overlay.ovr_recurrence_unit = unit
         if ovr_start_date is not None:
             overlay.ovr_start_date = ovr_start_date
 

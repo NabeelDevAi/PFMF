@@ -153,6 +153,8 @@ class ScenarioService:
                     category_id=txn.category_id,
                     notes=txn.notes,
                     recurrence=txn.recurrence,
+                    recurrence_interval=txn.recurrence_interval,
+                    recurrence_unit=txn.recurrence_unit,
                     start_date=txn.start_date,
                     end_date=txn.end_date,
                 )

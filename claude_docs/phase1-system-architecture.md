@@ -42,7 +42,7 @@ These are decided. Changing any of them after this point is a change-control eve
 | **D-05** | **Currency is display-only.** One primary currency per user. No FX, no conversion, no multi-currency holdings. | RFP says "SAR and other major currencies" — read as choice of primary, not simultaneous. Stated as an explicit assumption to client. | Medium |
 | **D-06** | **The forecast engine is server-side, single implementation.** Flutter renders, never calculates. | Two engines (Dart + Python) produce diverging numbers and fail RFP §10 acceptance. | Critical |
 | **D-07** | **No offline mode.** Consequence of D-06. Explicit exclusion in the proposal. | Offline-first with sync conflict resolution can double mobile cost and is not requested. | Medium |
-| **D-08** | **Frozen recurrence set:** one-time, weekly, bi-weekly, monthly, quarterly, semi-annual, annual. No custom cron-style rules. | RFP's "other practical schedules" is open-ended and unpriceable. This list covers salary, rent, utilities, subscriptions, loans, bonuses. | Low |
+| **D-08** | **Recurrence set:** one-time, weekly, bi-weekly, monthly, quarterly, semi-annual, annual, plus one bounded `custom` rule, "every N days / weeks / months / years" (N a whole number 1 to 999). No cron-style or free-form rules. **Amended 2026-11-22 (approved, UAT-004).** | RFP's "other practical schedules" is open-ended and unpriceable. This list covers salary, rent, utilities, subscriptions, loans, bonuses. | Low |
 | **D-09** | **Monthly forecast granularity only.** Annual figures are aggregations of monthly, computed client-side from the same payload. | RFP §4.5 names monthly as primary. One granularity, one code path. | Low |
 | **D-10** | **All money is stored and computed as integer minor units** (halalas / cents). Floats never touch a financial value. | Float arithmetic produces non-reconciling balances over 120 months. Non-negotiable. | Critical |
 | **D-11** | **An overlay records changed fields only, never a whole-item snapshot.** Fields the scenario did not override continue to resolve from Base at read time. | M1 R19, case 25.11. A snapshot would freeze a plan's rent at the old amount permanently, with nothing on screen to indicate staleness. | High — the defect case 25.11 exists to catch exactly this |
@@ -110,7 +110,12 @@ Dates: `DATE` only. No timestamps, no timezones, anywhere in the financial model
 ```sql
 CREATE TYPE direction      AS ENUM ('income', 'expense');
 CREATE TYPE recurrence     AS ENUM ('one_time','weekly','biweekly','monthly',
-                                    'quarterly','semiannual','annual');
+                                    'quarterly','semiannual','annual','custom');
+CREATE TYPE recurrence_unit AS ENUM ('day','week','month','year');
+-- transactions also carry recurrence_interval INT and recurrence_unit, and
+-- scenario_overlays ovr_recurrence_interval / ovr_recurrence_unit: present
+-- exactly when the (overridden) recurrence is 'custom', interval 1..999
+-- (CHECK constraints; migration 0018).
 CREATE TYPE overlay_op     AS ENUM ('exclude', 'override');
 
 CREATE TABLE users (
@@ -389,6 +394,8 @@ occurrence(n) = date(target.year, target.month,
 **Clamp, never drift.** The anchor day always comes from the original `start_date`, never from the previously generated occurrence. A rent starting Jan 31 produces: Jan 31 → Feb 28 → Mar 31 → Apr 30 → May 31. A naive implementation that walks forward from the last occurrence produces Mar 28, and the error compounds. This is the single most common bug in recurrence engines and it has an explicit test.
 
 Leap years fall out of `days_in_month` for free: annual on Feb 29 → Feb 28 in non-leap years, Feb 29 when available.
+
+**Custom recurrence (D-08 amended).** `custom` reduces to the two mechanisms above, with no new algorithm: units `day` and `week` are a fixed step of N and 7N days; units `month` and `year` are a step of N and 12N months from the original `start_date`, so the clamp rule applies unchanged. Every 4 months from Jan 31 gives Jan 31, May 31, Sep 30, Jan 31 (no drift); every 2 years from Feb 29, 2024 gives Feb 29 2024, Feb 28 2026, Feb 29 2028. A custom rule with an interval of 1 month, 3 months, 6 months, 12 months (or 1 year), 7 days (or 1 week) or 14 days (or 2 weeks) produces exactly the dates of the matching named rule (property-tested).
 
 **Boundaries:** `start_date` is inclusive, `end_date` is inclusive. A transaction whose `end_date` precedes its first occurrence emits nothing — valid, not an error.
 

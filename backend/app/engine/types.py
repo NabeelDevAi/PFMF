@@ -22,7 +22,9 @@ class Direction(StrEnum):
 
 
 class Recurrence(StrEnum):
-    """The frozen recurrence set. No custom cron-style rules -- ever."""
+    """The recurrence set: seven named rules plus `custom` ("every N days /
+    weeks / months / years", D-08 amended 2026-11-22). No cron-style or
+    free-form rules."""
 
     ONE_TIME = "one_time"
     WEEKLY = "weekly"
@@ -31,6 +33,16 @@ class Recurrence(StrEnum):
     QUARTERLY = "quarterly"
     SEMIANNUAL = "semiannual"
     ANNUAL = "annual"
+    CUSTOM = "custom"
+
+
+class RecurrenceUnit(StrEnum):
+    """The unit of a `custom` recurrence's interval."""
+
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"
+    YEAR = "year"
 
 
 class Origin(StrEnum):

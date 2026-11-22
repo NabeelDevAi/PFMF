@@ -23,6 +23,8 @@ from app.api.deps import get_current_user
 from app.api.schemas.common import ActionResult
 from app.api.schemas.transactions import (
     DependentsOut,
+    OccurrencePreviewOut,
+    OccurrencePreviewRequest,
     TransactionCreate,
     TransactionListOut,
     TransactionOut,
@@ -32,6 +34,7 @@ from app.core.errors import APIError
 from app.db.models.user import User
 from app.db.session import get_db
 from app.domain.enums import Origin
+from app.services.recurrence_rules import preview_dates
 from app.services.scenario_resolver import ScenarioResolver
 from app.services.scenario_service import ScenarioService
 from app.services.transaction_service import TransactionService
@@ -88,6 +91,8 @@ def create_transaction(
         amount_minor=body.amount_minor,
         direction=body.direction,
         recurrence=body.recurrence,
+        recurrence_interval=body.recurrence_interval,
+        recurrence_unit=body.recurrence_unit,
         start_date=body.start_date,
         end_date=body.end_date,
         category_id=body.category_id,
@@ -105,6 +110,25 @@ def create_transaction(
     return TransactionOut.from_row(txn, origin)
 
 
+@transactions_router.post("/preview-occurrences", response_model=OccurrencePreviewOut)
+def preview_occurrences(
+    body: OccurrencePreviewRequest, user: User = Depends(get_current_user)
+) -> OccurrencePreviewOut:
+    """The next `count` dates a recurrence rule would produce. Stateless:
+    nothing is read from or written to the database, so it is safe to call on
+    every keystroke while a transaction is being edited."""
+    return OccurrencePreviewOut(
+        dates=preview_dates(
+            body.recurrence,
+            body.recurrence_interval,
+            body.recurrence_unit,
+            body.start_date,
+            body.end_date,
+            body.count,
+        )
+    )
+
+
 @transactions_router.patch("/{transaction_id}", response_model=TransactionOut)
 def patch_transaction(
     transaction_id: uuid.UUID,
@@ -120,6 +144,8 @@ def patch_transaction(
         amount_minor=body.amount_minor,
         direction=body.direction,
         recurrence=body.recurrence,
+        recurrence_interval=body.recurrence_interval,
+        recurrence_unit=body.recurrence_unit,
         start_date=body.start_date,
         end_date=body.end_date,
         _unset_end_date=body.unset_end_date,

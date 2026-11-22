@@ -13,7 +13,7 @@ from app.api.schemas.categories import CategoryOut
 from app.api.schemas.me import SettingsOut
 from app.api.schemas.overlays import OverlayOut
 from app.api.schemas.scenarios import ScenarioOut
-from app.domain.enums import Direction, Recurrence
+from app.domain.enums import Direction, Recurrence, RecurrenceUnit
 
 if TYPE_CHECKING:
     from app.services.export_service import ExportData
@@ -40,6 +40,8 @@ class ExportTransactionOut(BaseModel):
     category_id: uuid.UUID | None
     notes: str | None
     recurrence: Recurrence
+    recurrence_interval: int | None
+    recurrence_unit: RecurrenceUnit | None
     start_date: date
     end_date: date | None
     created_at: datetime
@@ -170,6 +172,10 @@ def export_to_csv_zip(data: ExportData) -> bytes:
                         "category_id": str(t.category_id) if t.category_id else "",
                         "notes": t.notes or "",
                         "recurrence": t.recurrence.value,
+                        "recurrence_interval": (
+                            t.recurrence_interval if t.recurrence_interval is not None else ""
+                        ),
+                        "recurrence_unit": t.recurrence_unit.value if t.recurrence_unit else "",
                         "start_date": t.start_date.isoformat(),
                         "end_date": t.end_date.isoformat() if t.end_date else "",
                         "created_at": t.created_at.isoformat(),
@@ -186,6 +192,8 @@ def export_to_csv_zip(data: ExportData) -> bytes:
                     "category_id",
                     "notes",
                     "recurrence",
+                    "recurrence_interval",
+                    "recurrence_unit",
                     "start_date",
                     "end_date",
                     "created_at",
@@ -208,6 +216,14 @@ def export_to_csv_zip(data: ExportData) -> bytes:
                         else "",
                         "ovr_category_id": str(o.ovr_category_id) if o.ovr_category_id else "",
                         "ovr_recurrence": o.ovr_recurrence.value if o.ovr_recurrence else "",
+                        "ovr_recurrence_interval": (
+                            o.ovr_recurrence_interval
+                            if o.ovr_recurrence_interval is not None
+                            else ""
+                        ),
+                        "ovr_recurrence_unit": (
+                            o.ovr_recurrence_unit.value if o.ovr_recurrence_unit else ""
+                        ),
                         "ovr_start_date": o.ovr_start_date.isoformat() if o.ovr_start_date else "",
                         "ovr_end_date": o.ovr_end_date.isoformat() if o.ovr_end_date else "",
                         "unset_end_date": o.unset_end_date,
@@ -224,6 +240,8 @@ def export_to_csv_zip(data: ExportData) -> bytes:
                     "ovr_amount_minor",
                     "ovr_category_id",
                     "ovr_recurrence",
+                    "ovr_recurrence_interval",
+                    "ovr_recurrence_unit",
                     "ovr_start_date",
                     "ovr_end_date",
                     "unset_end_date",

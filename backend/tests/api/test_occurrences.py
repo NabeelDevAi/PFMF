@@ -215,6 +215,8 @@ def test_items_are_sorted_by_date_then_name_and_carry_the_documented_fields(
         "on": "2026-12-09",
         "origin": "own",
         "recurrence": "one_time",
+        "recurrence_interval": None,
+        "recurrence_unit": None,
         "start_date": "2026-12-09",
         "end_date": None,
         "category_id": None,

@@ -13,7 +13,7 @@ from datetime import date
 from hypothesis import strategies as st
 
 from app.engine.models import ResolvedTransaction
-from app.engine.types import Direction, Origin, Recurrence
+from app.engine.types import Direction, Origin, Recurrence, RecurrenceUnit
 
 # Wide enough to cross several leap years and force clamp behavior
 # (start dates on the 29th/30th/31st), narrow enough that YearMonth
@@ -33,13 +33,17 @@ def _transaction_spec(draw: st.DrawFn) -> dict:
     else:
         end_date = draw(st.none() | st.dates(min_value=start_date, max_value=_LATEST_END))
 
-    return {
+    spec = {
         "amount_minor": draw(st.integers(min_value=1, max_value=5_000_000)),
         "direction": draw(st.sampled_from(list(Direction))),
         "recurrence": recurrence,
         "start_date": start_date,
         "end_date": end_date,
     }
+    if recurrence is Recurrence.CUSTOM:
+        spec["recurrence_interval"] = draw(st.integers(min_value=1, max_value=60))
+        spec["recurrence_unit"] = draw(st.sampled_from(list(RecurrenceUnit)))
+    return spec
 
 
 def _build(specs: list[dict], origin: Origin) -> list[ResolvedTransaction]:

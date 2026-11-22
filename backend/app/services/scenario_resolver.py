@@ -27,11 +27,12 @@ from sqlalchemy.orm import Session
 from app.db.models.scenario import Scenario
 from app.db.models.scenario_overlay import ScenarioOverlay
 from app.db.models.transaction import Transaction
-from app.domain.enums import Direction, OverlayOp, Recurrence
+from app.domain.enums import Direction, OverlayOp, Recurrence, RecurrenceUnit
 from app.engine.models import ResolvedTransaction
 from app.engine.types import Direction as EngineDirection
 from app.engine.types import Origin as EngineOrigin
 from app.engine.types import Recurrence as EngineRecurrence
+from app.engine.types import RecurrenceUnit as EngineRecurrenceUnit
 from app.repositories.overlay_repository import OverlayRepository
 from app.repositories.scenario_repository import ScenarioRepository
 from app.repositories.transaction_repository import TransactionRepository
@@ -86,6 +87,8 @@ class ExcludedRow:
     end_date: date | None
     created_at: datetime
     updated_at: datetime
+    recurrence_interval: int | None = None
+    recurrence_unit: RecurrenceUnit | None = None
 
 
 class ScenarioResolver:
@@ -166,6 +169,8 @@ def _base_fields(txn: Transaction) -> dict:
         "direction": txn.direction,
         "category_id": txn.category_id,
         "recurrence": txn.recurrence,
+        "recurrence_interval": txn.recurrence_interval,
+        "recurrence_unit": txn.recurrence_unit,
         "start_date": txn.start_date,
         "end_date": txn.end_date,
     }
@@ -183,7 +188,12 @@ def _patched_fields(txn: Transaction, ov: ScenarioOverlay) -> dict:
     if ov.ovr_category_id is not None:
         fields["category_id"] = ov.ovr_category_id
     if ov.ovr_recurrence is not None:
+        # The interval and unit travel with the recurrence they belong to:
+        # overriding to `custom` brings the override's own, overriding to a
+        # named rule clears the base item's.
         fields["recurrence"] = ov.ovr_recurrence
+        fields["recurrence_interval"] = ov.ovr_recurrence_interval
+        fields["recurrence_unit"] = ov.ovr_recurrence_unit
     if ov.ovr_start_date is not None:
         fields["start_date"] = ov.ovr_start_date
     if ov.unset_end_date:
@@ -212,6 +222,12 @@ def _row(
         recurrence=EngineRecurrence(fields["recurrence"].value),
         start_date=fields["start_date"],
         end_date=fields["end_date"],
+        recurrence_interval=fields["recurrence_interval"],
+        recurrence_unit=(
+            EngineRecurrenceUnit(fields["recurrence_unit"].value)
+            if fields["recurrence_unit"] is not None
+            else None
+        ),
     )
     return ResolvedRow(
         resolved=resolved,
@@ -240,4 +256,6 @@ def _excluded_row(txn: Transaction, ov: ScenarioOverlay, scenario_id: uuid.UUID)
         end_date=txn.end_date,
         created_at=txn.created_at,
         updated_at=txn.updated_at,
+        recurrence_interval=txn.recurrence_interval,
+        recurrence_unit=txn.recurrence_unit,
     )

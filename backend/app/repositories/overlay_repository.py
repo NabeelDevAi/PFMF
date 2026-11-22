@@ -104,6 +104,8 @@ class OverlayRepository:
                 ovr_amount_minor=overlay.ovr_amount_minor,
                 ovr_category_id=overlay.ovr_category_id,
                 ovr_recurrence=overlay.ovr_recurrence,
+                ovr_recurrence_interval=overlay.ovr_recurrence_interval,
+                ovr_recurrence_unit=overlay.ovr_recurrence_unit,
                 ovr_start_date=overlay.ovr_start_date,
                 ovr_end_date=overlay.ovr_end_date,
                 unset_end_date=overlay.unset_end_date,

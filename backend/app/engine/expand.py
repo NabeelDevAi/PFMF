@@ -13,7 +13,7 @@ from datetime import date, timedelta
 
 from .calendar import clamped_date
 from .models import Occurrence, ResolvedTransaction
-from .types import Recurrence, YearMonth
+from .types import Recurrence, RecurrenceUnit, YearMonth
 
 DAY_INTERVALS = {Recurrence.WEEKLY: 7, Recurrence.BIWEEKLY: 14}
 MONTH_INTERVALS = {
@@ -22,6 +22,26 @@ MONTH_INTERVALS = {
     Recurrence.SEMIANNUAL: 6,
     Recurrence.ANNUAL: 12,
 }
+# A custom rule reduces to one of the two mechanisms above: day/week units
+# are a fixed number of days, month/year units a number of months (a year is
+# 12 months, so the anchor-day clamp rule applies unchanged, including
+# Feb 29 -> Feb 28 -> back to Feb 29 in the next leap year).
+_CUSTOM_DAYS = {RecurrenceUnit.DAY: 1, RecurrenceUnit.WEEK: 7}
+_CUSTOM_MONTHS = {RecurrenceUnit.MONTH: 1, RecurrenceUnit.YEAR: 12}
+
+
+def cadence(txn: ResolvedTransaction) -> tuple[str, int]:
+    """("days", step) or ("months", step) for any repeating transaction."""
+    if txn.recurrence is Recurrence.CUSTOM:
+        interval, unit = txn.recurrence_interval, txn.recurrence_unit
+        if interval is None or interval < 1 or unit is None:
+            raise ValueError("a custom recurrence needs a positive interval and a unit")
+        if unit in _CUSTOM_DAYS:
+            return "days", interval * _CUSTOM_DAYS[unit]
+        return "months", interval * _CUSTOM_MONTHS[unit]
+    if txn.recurrence in DAY_INTERVALS:
+        return "days", DAY_INTERVALS[txn.recurrence]
+    return "months", MONTH_INTERVALS[txn.recurrence]
 
 
 def expand(txn: ResolvedTransaction, window_start: date, window_end: date) -> Iterator[Occurrence]:
@@ -39,16 +59,16 @@ def expand(txn: ResolvedTransaction, window_start: date, window_end: date) -> It
         # Valid, not an error -- zero occurrences.
         return
 
-    if txn.recurrence in DAY_INTERVALS:
-        yield from _expand_day_based(txn, window_start, hard_end)
+    kind, step = cadence(txn)
+    if kind == "days":
+        yield from _expand_day_based(txn, window_start, hard_end, step)
     else:
-        yield from _expand_month_based(txn, window_start, hard_end)
+        yield from _expand_month_based(txn, window_start, hard_end, step)
 
 
 def _expand_day_based(
-    txn: ResolvedTransaction, window_start: date, hard_end: date
+    txn: ResolvedTransaction, window_start: date, hard_end: date, step: int
 ) -> Iterator[Occurrence]:
-    step = DAY_INTERVALS[txn.recurrence]
 
     # Fast-forward to the first occurrence at or after the window, without
     # generating (and discarding) every occurrence before it.
@@ -63,9 +83,8 @@ def _expand_day_based(
 
 
 def _expand_month_based(
-    txn: ResolvedTransaction, window_start: date, hard_end: date
+    txn: ResolvedTransaction, window_start: date, hard_end: date, interval: int
 ) -> Iterator[Occurrence]:
-    interval = MONTH_INTERVALS[txn.recurrence]
     anchor_day = txn.start_date.day  # ALWAYS from start_date -- never from a generated occurrence
     start_ym = YearMonth.from_date(txn.start_date)
 

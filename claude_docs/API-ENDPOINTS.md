@@ -377,7 +377,7 @@ Verified live end to end: override Rent's amount, edit the override again, then 
 
 ### 8.4 Schedule picker
 
-The seven options in your Schedule sheet map exactly to the backend's `recurrence` values — no gaps, nothing to reconcile:
+The seven named options in your Schedule sheet map exactly to the backend's `recurrence` values (the eighth, **Custom**, is described in §8.4.1):
 
 | Sheet label | `recurrence` value |
 |---|---|
@@ -390,6 +390,32 @@ The seven options in your Schedule sheet map exactly to the backend's `recurrenc
 | Yearly | `annual` |
 
 The sheet's caption about a 29th–31st start date "falling on the last day in shorter months" describes the engine's clamp behavior for month-based recurrences — purely informational copy, not something the client computes; the server always returns the already-clamped occurrence dates.
+
+### 8.4.1 Custom recurrence — "Every [4] [Months]" (UAT-004)
+
+`recurrence: "custom"` plus two extra fields, on create (`POST /scenarios/{id}/transactions`), edit (`PATCH /transactions/{id}`) and in transaction responses:
+
+```json
+{ "recurrence": "custom", "recurrence_interval": 4, "recurrence_unit": "month", "start_date": "2026-01-31" }
+```
+
+- `recurrence_interval`: a whole number from 1 to 999. `recurrence_unit`: `day`, `week`, `month` or `year`.
+- **Both are required for `custom`, and both must be omitted (or `null`) for every other recurrence.** Otherwise `validation.invalid` (422) with `params.field` naming the field (`recurrence_interval` or `recurrence_unit`). Responses always include both fields (`null` unless custom).
+- Examples: every 10 days = `10` + `day`; every 4 months = `4` + `month`; every 6 months = `6` + `month`; every 2 years = `2` + `year`; every 3 weeks = `3` + `week`.
+- Start date, optional end date and all date rules are unchanged (§8.1). Dates from the 29th to the 31st clamp to the last day of shorter months and return to the original day afterwards (every 4 months from Jan 31: Jan 31, May 31, Sep 30, Jan 31); a Feb 29 start every year gives Feb 28 in non-leap years and Feb 29 in leap years.
+- **PATCH:** while the transaction stays `custom`, an omitted field keeps its value (send only `recurrence_interval` to change "4" to "6"). Switching a named rule to `custom` needs both fields in the request. Switching away from `custom` clears both automatically; sending them with a named rule is a 422.
+- **Plan overlays** (inherited items edited inside a derived plan, §8.3): `ovr_recurrence: "custom"` with `ovr_recurrence_interval` and `ovr_recurrence_unit` (same rules, on `POST` and `PATCH .../overlays`). Overriding to a named rule clears the interval and unit. The resolved list shows the effective values; Base is never changed.
+- **Duplicate and export** carry the two fields (and the overlay's `ovr_` ones) through.
+- The forecast, the compare drivers and the month view (§15.10, which also returns the two fields per item) all use the same expansion.
+
+**Preview the next dates — `POST /transactions/preview-occurrences`** (authenticated, nothing is saved or read, safe to call while the user types):
+
+```json
+{ "recurrence": "custom", "recurrence_interval": 4, "recurrence_unit": "month",
+  "start_date": "2026-01-31", "end_date": null, "count": 6 }
+```
+
+`count` is 1 to 24 (default 6). `200`: `{ "dates": ["2026-01-31", "2026-05-31", "2026-09-30", ...] }`, the next `count` occurrence dates from `start_date`, stopping at `end_date` if given. It accepts any recurrence (a one-time rule returns its single date). The dates come from the same engine as the forecast, so the preview cannot disagree with it: show them as returned, never compute them on the device. Errors are the create rules: `validation.invalid` (field named), `transaction.end_before_start`, `transaction.one_time_has_end_date`, and dates outside 2000-01-01 to 2100-12-31.
 
 ### 8.5 Category picker (as used from this screen)
 

@@ -4,10 +4,17 @@ import uuid
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.schemas.common import TxnDate
-from app.domain.enums import Direction, Origin, Recurrence
+from app.domain.enums import (
+    MAX_RECURRENCE_INTERVAL,
+    MIN_RECURRENCE_INTERVAL,
+    Direction,
+    Origin,
+    Recurrence,
+    RecurrenceUnit,
+)
 
 if TYPE_CHECKING:
     from app.services.scenario_resolver import ExcludedRow, ResolvedRow
@@ -22,6 +29,9 @@ class TransactionOut(BaseModel):
     category_id: uuid.UUID | None
     notes: str | None
     recurrence: Recurrence
+    # Only for recurrence == "custom": "every <recurrence_interval> <recurrence_unit>".
+    recurrence_interval: int | None
+    recurrence_unit: RecurrenceUnit | None
     start_date: date
     end_date: date | None
     origin: Origin
@@ -44,6 +54,8 @@ class TransactionOut(BaseModel):
             category_id=txn.category_id,
             notes=txn.notes,
             recurrence=txn.recurrence,
+            recurrence_interval=txn.recurrence_interval,
+            recurrence_unit=txn.recurrence_unit,
             start_date=txn.start_date,
             end_date=txn.end_date,
             origin=origin,
@@ -69,6 +81,10 @@ class TransactionOut(BaseModel):
             category_id=uuid.UUID(r.category_id) if r.category_id else None,
             notes=row.notes,
             recurrence=Recurrence(r.recurrence.value),
+            recurrence_interval=r.recurrence_interval,
+            recurrence_unit=(
+                RecurrenceUnit(r.recurrence_unit.value) if r.recurrence_unit else None
+            ),
             start_date=r.start_date,
             end_date=r.end_date,
             origin=Origin(r.origin.value),
@@ -93,6 +109,8 @@ class TransactionOut(BaseModel):
             category_id=row.category_id,
             notes=row.notes,
             recurrence=row.recurrence,
+            recurrence_interval=row.recurrence_interval,
+            recurrence_unit=row.recurrence_unit,
             start_date=row.start_date,
             end_date=row.end_date,
             origin=Origin.EXCLUDED,
@@ -111,6 +129,12 @@ class TransactionCreate(BaseModel):
     amount_minor: int
     direction: Direction
     recurrence: Recurrence
+    # Required when recurrence is "custom" (whole number 1..999 and a unit);
+    # must be omitted for every other recurrence.
+    recurrence_interval: int | None = Field(
+        default=None, ge=MIN_RECURRENCE_INTERVAL, le=MAX_RECURRENCE_INTERVAL
+    )
+    recurrence_unit: RecurrenceUnit | None = None
     start_date: TxnDate
     end_date: TxnDate | None = None
     category_id: uuid.UUID | None = None
@@ -142,6 +166,10 @@ class TransactionPatch(BaseModel):
     amount_minor: int | None = None
     direction: Direction | None = None  # accepted only to detect+reject a change; never applied
     recurrence: Recurrence | None = None
+    recurrence_interval: int | None = Field(
+        default=None, ge=MIN_RECURRENCE_INTERVAL, le=MAX_RECURRENCE_INTERVAL
+    )
+    recurrence_unit: RecurrenceUnit | None = None
     start_date: TxnDate | None = None
     end_date: TxnDate | None = None
     unset_end_date: bool = False
@@ -149,3 +177,21 @@ class TransactionPatch(BaseModel):
     unset_category_id: bool = False
     notes: str | None = None
     unset_notes: bool = False
+
+
+class OccurrencePreviewRequest(BaseModel):
+    """Body of POST /transactions/preview-occurrences: a rule that has not been
+    saved, to show "next dates" while the user is still filling in the form."""
+
+    recurrence: Recurrence
+    recurrence_interval: int | None = Field(
+        default=None, ge=MIN_RECURRENCE_INTERVAL, le=MAX_RECURRENCE_INTERVAL
+    )
+    recurrence_unit: RecurrenceUnit | None = None
+    start_date: TxnDate
+    end_date: TxnDate | None = None
+    count: int = Field(default=6, ge=1, le=24)
+
+
+class OccurrencePreviewOut(BaseModel):
+    dates: list[date]
