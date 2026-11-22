@@ -127,6 +127,8 @@ class OverlayService:
 
         if overlay.op is OverlayOp.OVERRIDE:
             target = self.transactions.get_by_id(user_id, overlay.base_transaction_id)
+            if target is None:
+                raise APIError("resource.not_found")
             merged = _merge(
                 target,
                 ovr_amount_minor=overlay.ovr_amount_minor,

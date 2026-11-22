@@ -28,6 +28,7 @@ from app.api.schemas.transactions import (
     TransactionOut,
     TransactionPatch,
 )
+from app.core.errors import APIError
 from app.db.models.user import User
 from app.db.session import get_db
 from app.domain.enums import Origin
@@ -98,6 +99,8 @@ def create_transaction(
     # OVERRIDDEN, which only exist in the *resolved* view (list_transactions
     # above), not as rows anyone creates directly.
     scenario = service.scenarios.get_by_id(user.id, scenario_id)
+    if scenario is None:
+        raise APIError("resource.not_found")
     origin = _own_or_added(scenario.is_base)
     return TransactionOut.from_row(txn, origin)
 
@@ -127,6 +130,8 @@ def patch_transaction(
     )
     db.commit()
     scenario = service.scenarios.get_by_id(user.id, txn.scenario_id)
+    if scenario is None:
+        raise APIError("resource.not_found")
     return TransactionOut.from_row(txn, _own_or_added(scenario.is_base))
 
 
